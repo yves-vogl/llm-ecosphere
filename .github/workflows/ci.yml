@@ -197,14 +197,20 @@ jobs:
           git checkout -q -b coverage-badge
           git add coverage.svg
           git commit -q -m "ci: refresh coverage badge (${COVERAGE_PCT}%)"
-          # Do NOT interpolate the token into the URL — token-in-URL ends up
-          # in the git config of the staging dir, in process listings of
-          # `git push` arguments, and in error-path logs. `http.extraHeader`
-          # sends the Authorization header at request time without baking it
-          # into config or argv.
-          git -c http.extraHeader="Authorization: Bearer ${GITHUB_TOKEN}" push -q --force \
-            "https://github.com/${GITHUB_REPOSITORY}.git" \
-            HEAD:refs/heads/coverage-badge
+          # Authenticate with the ephemeral GITHUB_TOKEN via a credential
+          # helper that reads the token from the environment at exec time,
+          # so the value never lands in argv, in .git/config, or in
+          # error-path logs. The first empty `credential.helper=` clears any
+          # inherited helper so ours is the only one consulted. We use
+          # x-access-token basic auth — the durable form actions/checkout
+          # itself uses — because github.com's git endpoint no longer accepts
+          # `Authorization: Bearer <token>` for pushes (it returns 401, which
+          # surfaces as "could not read Username" in non-interactive runs).
+          git -c credential.helper= \
+              -c credential.helper='!f() { echo username=x-access-token; echo "password=${GITHUB_TOKEN}"; }; f' \
+              push -q --force \
+              "https://github.com/${GITHUB_REPOSITORY}.git" \
+              HEAD:refs/heads/coverage-badge
           echo "Pushed badge to coverage-badge branch"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
