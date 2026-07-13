@@ -1,0 +1,85 @@
+name: Docs
+
+# MkDocs Material site deployed to GitHub Pages.
+#
+# Triggers:
+#   - push to main → build + deploy
+#   - pull_request → build-only (validate diff)
+#   - workflow_dispatch → manual rebuild (e.g. after a content-only update
+#     that does not trigger CI)
+#
+# Permissions: top-level read-all; deploy job escalates to pages+id-token+contents:read
+# (the minimum required by actions/deploy-pages OIDC verification).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions: read-all
+
+# Allow only one concurrent Pages deployment per the GitHub-recommended pattern.
+# cancel-in-progress: false lets a running deploy finish; queued runs collapse.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build mkdocs site
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install mkdocs + plugins (hash-pinned)
+        run: |
+          # Hash-pinned install against the generated lockfile.
+          # requirements/docs.in declares the top-level pins; .lock.txt
+          # adds transitive deps with --hash=sha256:... per wheel so the
+          # resolver cannot fetch an unexpected artifact even if a name
+          # collision were attempted on PyPI.
+          pip install --require-hashes --no-deps -r requirements/docs.lock.txt
+
+      - name: Build site (strict mode)
+        run: mkdocs build --strict
+
+      - name: Upload artifact for deploy job
+        # Also upload when triggered manually from main via
+        # workflow_dispatch, so the deploy job downstream actually has an
+        # artifact to deploy.
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site/
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    # Deploy on both push-to-main AND manual workflow_dispatch from main.
+    # PR runs still skip deploy (no artifact uploaded).
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write       # required for actions/deploy-pages
+      id-token: write    # required for OIDC verification by deploy-pages
+      contents: read
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

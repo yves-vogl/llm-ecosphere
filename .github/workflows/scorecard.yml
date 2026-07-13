@@ -1,0 +1,65 @@
+name: OpenSSF Scorecard
+
+on:
+  # Re-run weekly so the score reflects current branch-protection and
+  # workflow state even when there are no pushes.
+  schedule:
+    - cron: "0 6 * * 1"
+  # Run on every push to the default branch.
+  push:
+    branches: [main]
+  # Re-evaluate when branch-protection rules change (most direct signal
+  # for the Branch-Protection check).
+  branch_protection_rule:
+
+# Declare default read-only access for the whole workflow. Individual
+# steps that need more (SARIF upload, OIDC for the OpenSSF publish call)
+# escalate at the job level below.
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    # Pin to ubuntu-24.04 to match every other workflow in the repo.
+    # Avoids silent drift when GitHub flips the `ubuntu-latest` floor.
+    runs-on: ubuntu-24.04
+    permissions:
+      # Upload findings to the GitHub code-scanning UI.
+      security-events: write
+      # OIDC token so scorecard-action can publish to api.securityscorecards.dev.
+      id-token: write
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Run OpenSSF Scorecard analysis
+        uses: ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a # v2.4.3
+        with:
+          # Runs with the default GITHUB_TOKEN, which cannot read
+          # branch-protection state — the Branch-Protection check reports
+          # -1 (unreadable) until a fine-grained PAT with
+          # Administration:read on this repo is provisioned as the
+          # SCORECARD_READ_TOKEN secret and passed here as `repo_token`.
+          # Every other check works with the default token.
+          results_file: results.sarif
+          results_format: sarif
+          # Publishes the score to api.securityscorecards.dev so the
+          # README badge can read it. Public-good infrastructure run by
+          # the Open Source Security Foundation (Linux Foundation).
+          publish_results: true
+
+      - name: Upload SARIF as workflow artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: SARIF file
+          path: results.sarif
+          retention-days: 5
+
+      - name: Upload SARIF to GitHub code-scanning
+        uses: github/codeql-action/upload-sarif@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3.36.2
+        with:
+          sarif_file: results.sarif

@@ -1,0 +1,86 @@
+site_name: llm-ecosphere
+site_description: >
+  A closed world, small enough to explain an LLM ecosystem completely.
+  Build, train, run and understand a GPT from scratch — in a tiny,
+  exactly-solvable game world where every claim is measurable.
+site_url: https://yves-vogl.github.io/llm-ecosphere/
+repo_url: https://github.com/yves-vogl/llm-ecosphere
+repo_name: yves-vogl/llm-ecosphere
+edit_uri: edit/main/
+
+theme:
+  name: material
+  language: en
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer   # prev/next links — the docs are a book, read in order
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+plugins:
+  - search
+
+validation:
+  links:
+    not_found: warn
+    absolute_links: info
+    unrecognized_links: info
+
+markdown_extensions:
+  # Specifying this list REPLACES the mkdocs defaults, so `tables` must be
+  # listed explicitly — the chapters use tables heavily.
+  - tables
+  - admonition
+  - attr_list
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+      # GitHub-compatible slugs, so heading anchors written for the GitHub
+      # renderer (e.g. `#1-character-level-tokenizer--an-afternoon`) work
+      # identically on the published site.
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+
+nav:
+  - Home: index.md
+  - The guided tour:
+      - "00 · Overview": 00-overview.md
+      - "01 · The game and its exact solver": 01-the-game.md
+      - "02 · From games to a training corpus": 02-data.md
+      - "03 · Tokenization": 03-tokenization.md
+      - "04 · The Transformer, spelled out": 04-model.md
+      - "05 · Training: pretraining and finetuning": 05-training.md
+      - "06 · Inference: sampling and playing": 06-inference.md
+      - "07 · Evaluation: what did it learn?": 07-evaluation.md
+  - Going further:
+      - "08 · Exercises: make it yours": 08-exercises.md
+      - "09 · Lab report: the character-level tokenizer": 09-char-tokenizer-lab.md
+      - "10 · Why GPUs? The hardware under the pipeline": 10-gpu-cuda.md
+
+exclude_docs: |
+  **/.DS_Store

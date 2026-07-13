@@ -1,0 +1,58 @@
+name: Commit-message lint
+
+# Conventional Commits enforcement on every PR. Pull-request-only trigger
+# (not push) so the gate judges exactly the range that lands on main. The
+# job walks every commit in the PR range (BASE..HEAD) and fails on the
+# first non-conforming subject. The branch-protection rule references this
+# job by NAME ("Commit-message lint"); the name string is load-bearing.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Commit-message lint
+    runs-on: ubuntu-24.04
+    # Explicit per-job least-privilege block (matches the workflow-level
+    # scope) so the textual posture is unambiguous to auditors and to
+    # OpenSSF Scorecard's Token-Permissions check.
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+          # Commit-message lint reads commit subjects from the local git
+          # object database; no persisted token needed.
+          persist-credentials: false
+
+      - name: Validate commit messages
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+          # Conventional Commits 1.0.0 grammar:
+          #   <type>[optional scope][!]: <description>
+          # The trailing '!' marks a breaking change (e.g. 'feat!:' or
+          # 'feat(api)!:').
+          REGEX='^(feat|fix|docs|test|refactor|chore|ci|build|perf|style|revert)(\([^)]+\))?!?: .+'
+          FAIL=0
+          while IFS= read -r SHA; do
+            SUBJECT=$(git log --format=%s -n 1 "${SHA}")
+            if ! echo "${SUBJECT}" | grep -qE "${REGEX}"; then
+              echo "FAIL ${SHA:0:7}: '${SUBJECT}'"
+              FAIL=1
+            fi
+          done < <(git rev-list "${BASE}..${HEAD}")
+          if [ "${FAIL}" -eq 1 ]; then
+            echo ""
+            echo "Conventional Commits required: <type>(<scope>): <subject>"
+            echo "Allowed types: feat fix docs test refactor chore ci build perf style revert"
+            exit 1
+          fi
+          echo "OK: all commit subjects follow Conventional Commits"

@@ -1,0 +1,4 @@
+# Top-level pin for the Semgrep SAST toolchain (sast.yml workflow).
+# The hash-pinned lockfile is generated from this file:
+#   uv pip compile --generate-hashes -o requirements/sast.lock.txt requirements/sast.in
+semgrep==1.169.0

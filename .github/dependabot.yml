@@ -1,0 +1,82 @@
+version: 2
+
+updates:
+  # Keep GitHub Actions pinned to commit-SHA. Dependabot bumps the SHA AND
+  # the trailing `# vX.Y.Z` comment in lockstep — maintainers should NOT
+  # manually edit the `# vX.Y.Z` comment; let Dependabot do it. Manual
+  # edits cause merge conflicts on the next Dependabot bump.
+  #
+  # Grouping: minor + patch SHA bumps coalesce into ONE weekly PR.
+  # Major-version bumps stay in separate PRs (they need attention; the
+  # breaking-change surface is larger).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    commit-message:
+      prefix: ci
+      include: scope
+    labels:
+      - dependencies
+      - github-actions
+    groups:
+      actions-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+    open-pull-requests-limit: 5
+
+  # Runtime dependencies (torch, numpy, pytest) declared in the root
+  # requirements.txt. These are range-pins (`>=`) by design — the repo is
+  # an educational lab that should install cleanly on current toolchains —
+  # so Dependabot only raises PRs when the floor falls behind a major
+  # release or a security advisory lands.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    commit-message:
+      prefix: build
+      include: scope
+    labels:
+      - dependencies
+      - python
+    groups:
+      pip-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+    open-pull-requests-limit: 5
+
+  # CI toolchain (MkDocs + plugins, Semgrep) is hash-pinned in
+  # requirements/{docs,sast}.lock.txt. Dependabot scans the top-level
+  # `.in` files via `directory: /requirements`; bumps arrive as PRs that
+  # update the lockfiles.
+  - package-ecosystem: pip
+    directory: /requirements
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    commit-message:
+      prefix: ci
+      include: scope
+    labels:
+      - dependencies
+      - python
+    groups:
+      pip-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+    open-pull-requests-limit: 5
