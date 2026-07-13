@@ -20,9 +20,9 @@ attrs==26.1.0 \
     #   jsonschema
     #   referencing
     #   semgrep
-boltons==21.0.0 \
-    --hash=sha256:65e70a79a731a7fe6e98592ecfb5ccf2115873d01dbc576079874629e5c90f13 \
-    --hash=sha256:b9bb7b58b2b420bbe11a6025fdef6d3e5edc9f76a42fb467afe7ca212ef9948b
+boltons==26.0.0 \
+    --hash=sha256:5566d6cfd5a1e873d8e8476496287a9f92979964611ad9a9cecb6b0ef29b1edd \
+    --hash=sha256:ba077cac51b27532299634f87f5589b4080fa94a011b4d43a9247f775e9215c7
     # via
     #   face
     #   glom
