@@ -1,0 +1,98 @@
+name: Model zoo
+
+# Trains the full scenario matrix on CPU (seeded) and attaches each model
+# plus its eval.json to a GitHub Release, so a user can download a ready
+# model instead of training one. The matrix is
+#   {base, expert, gambler} x {move, char}
+# built as: pretrain the base once per tokenizer, then finetune the expert
+# (minimax imitation) and the gambler (winner imitation) from it.
+#
+# Triggers on a version tag, or on demand against an existing tag. Uploads
+# via the gh CLI rather than a third-party action, to keep the workflow
+# dependency surface minimal (consistent with the repo's supply-chain
+# posture).
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to attach the models to"
+        required: true
+
+permissions: read-all
+
+jobs:
+  zoo:
+    name: Train and publish the model zoo
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write  # required to create/update the Release and upload assets
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies (CPU-only torch)
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.4"
+          pip install "numpy>=1.26"
+
+      - name: Enumerate the game corpus
+        run: python -m minillm.dataset --out data
+
+      - name: Train the scenario matrix — (base / expert / gambler) x (move / char)
+        run: |
+          set -e
+          mkdir -p zoo
+          for TOK in move char; do
+            BLK=""
+            [ "$TOK" = "char" ] && BLK="--block-size 24"
+            echo "== $TOK: base (pretrain) =="
+            python -m minillm.train --stage pretrain --tokenizer "$TOK" $BLK \
+              --out-dir "runs/zoo-base-$TOK"
+            echo "== $TOK: expert (finetune, minimax imitation) =="
+            python -m minillm.train --stage finetune \
+              --init-from "runs/zoo-base-$TOK/model.pt" \
+              --out-dir "runs/zoo-expert-$TOK"
+            echo "== $TOK: gambler (finetune, winner imitation) =="
+            python -m minillm.train --stage finetune --objective gambler \
+              --init-from "runs/zoo-base-$TOK/model.pt" \
+              --out-dir "runs/zoo-gambler-$TOK"
+            for ROLE in base expert gambler; do
+              python -m minillm.evaluate --ckpt "runs/zoo-$ROLE-$TOK/model.pt" \
+                --out "runs/zoo-$ROLE-$TOK/eval.json"
+              cp "runs/zoo-$ROLE-$TOK/model.pt"  "zoo/$ROLE-$TOK.pt"
+              cp "runs/zoo-$ROLE-$TOK/eval.json" "zoo/$ROLE-$TOK-eval.json"
+            done
+          done
+          echo "Built zoo:"; ls -la zoo/
+
+      - name: Resolve the target release tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Attach the zoo to the Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          TAG="${{ steps.tag.outputs.tag }}"
+          # A tag push has no Release until something creates one; create it
+          # if missing, otherwise reuse the existing Release.
+          gh release view "$TAG" >/dev/null 2>&1 \
+            || gh release create "$TAG" --title "$TAG" --generate-notes
+          gh release upload "$TAG" zoo/*.pt zoo/*-eval.json --clobber
+          echo "Uploaded $(ls zoo | wc -l) assets to release $TAG"
