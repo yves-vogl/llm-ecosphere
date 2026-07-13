@@ -71,6 +71,10 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Why this exists: motivation.md
+  - Use it:
+      - "Use a trained model": use-a-model.md
+      - "The models in detail": the-models.md
+      - "Hands-on: change the training": hands-on.md
   - The guided tour:
       - "00 · Overview": 00-overview.md
       - "01 · The game and its exact solver": 01-the-game.md
