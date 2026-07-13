@@ -1,6 +1,6 @@
 PY := .venv/bin/python
 
-.PHONY: setup test data pretrain finetune model-gambler eval play sample attention all
+.PHONY: setup test data pretrain finetune model-gambler eval play arena sample attention all
 
 ## One-time environment setup (uses uv; see README for a plain-venv alternative)
 setup:
@@ -35,6 +35,10 @@ eval:
 ## Play against the model interactively
 play:
 	$(PY) -m minillm.play
+
+## Arena: pit any model against a human, a random player, the solver, or another model
+arena:
+	$(PY) -m minillm.arena --model runs/finetune/model.pt --vs solver
 
 ## Generate a few complete game transcripts and check them for legality
 sample:
