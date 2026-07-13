@@ -1,0 +1,69 @@
+name: SAST
+
+# Semgrep SAST as a required check. Ruleset: p/security-audit + p/secrets.
+# ERROR-severity findings block the workflow. SARIF results upload to
+# GitHub code-scanning.
+#
+# Scorecard reporting caveat: ossf/scorecard does not yet detect Semgrep —
+# the Scorecard SAST score stays low until upstream support lands. The
+# security control is fully in place regardless of the score lag.
+
+on:
+  # Run on every branch push, not just main, so SAST findings surface on a
+  # feature-branch push rather than only in the PR.
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+permissions: read-all
+
+jobs:
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-24.04
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install Semgrep (hash-pinned)
+        # Hash-pinned install against the generated lockfile.
+        # requirements/sast.in declares the top-level pin; .lock.txt adds
+        # transitive deps with --hash=sha256:... per wheel. Bump Semgrep
+        # via Dependabot PR or regenerate manually:
+        #   uv pip compile --generate-hashes -o requirements/sast.lock.txt requirements/sast.in
+        run: pip install --require-hashes --no-deps -r requirements/sast.lock.txt
+
+      - name: Run Semgrep (p/security-audit + p/secrets, ERROR-blocking)
+        run: |
+          set -e
+          # Use `semgrep scan` (not `semgrep ci`) — `ci` is hard-wired to the
+          # Semgrep AppSec Platform login flow and rejects `--error`. `scan`
+          # is the offline-friendly equivalent that honors `--error` to flip
+          # the exit code on ERROR-severity findings. Same rules, same SARIF
+          # output, no auth needed.
+          semgrep scan \
+            --config p/security-audit \
+            --config p/secrets \
+            --error \
+            --sarif --output=semgrep.sarif \
+            --metrics=off
+          echo "OK: Semgrep clean"
+
+      - name: Upload SARIF to GitHub code-scanning
+        if: always()  # upload SARIF even when semgrep exits non-zero, so findings surface in the UI
+        uses: github/codeql-action/upload-sarif@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3.36.2
+        with:
+          sarif_file: semgrep.sarif

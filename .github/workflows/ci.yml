@@ -1,0 +1,233 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+env:
+  LC_ALL: C
+
+# Explicit workflow-level default for all jobs. Per-job permissions blocks
+# below stay authoritative for write-scope escalation (the badge job needs
+# `contents: write` to push the coverage-badge branch; the secret-scan job
+# needs `pull-requests: write` to comment).
+permissions: read-all
+
+jobs:
+  test:
+    name: Tests + coverage
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      coverage_pct: ${{ steps.coverage.outputs.coverage_pct }}
+      coverage_int: ${{ steps.coverage.outputs.coverage_int }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          # No persisted git credentials in .git/config; later steps in
+          # this job have no need to push or fetch privately.
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies (CPU-only torch)
+        run: |
+          # PyTorch publishes CPU-only wheels on its own index. The default
+          # PyPI wheel bundles CUDA libraries (~2 GB) that this repo never
+          # uses — everything here runs on plain CPU, by design (see
+          # docs/10-gpu-cuda.md). The CPU index is not hash-pinnable the way
+          # requirements/{docs,sast}.lock.txt are, so the version range from
+          # requirements.txt is the pin.
+          pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.4"
+          pip install "numpy>=1.26" "pytest>=8.0" "pytest-cov>=6.0"
+
+      - name: Run test suite (with coverage)
+        # Coverage scope is the core library — .coveragerc omits the five
+        # CLI entry points that need trained checkpoints or a terminal.
+        run: pytest -q --cov=minillm --cov-report=term
+
+      - name: Enforce coverage threshold
+        id: coverage
+        run: |
+          set -e
+          coverage report | tail -5
+          # Single-awk extraction: emits the full percentage on the first
+          # line and the integer floor on the second.
+          AWK_OUT=$(coverage report | awk '
+            /^TOTAL/ {
+              raw = $NF
+              gsub("%", "", raw)
+              split(raw, a, ".")
+              print raw
+              print a[1]
+              exit
+            }
+          ')
+          TOTAL_COV_FULL=$(echo "$AWK_OUT" | sed -n '1p')
+          TOTAL_COV=$(echo "$AWK_OUT" | sed -n '2p')
+          if [ -z "$TOTAL_COV" ]; then
+            echo "FAIL: could not parse coverage percentage from coverage report"
+            exit 1
+          fi
+          if [ "$TOTAL_COV" -lt 85 ]; then
+            echo "FAIL: coverage ${TOTAL_COV}% < 85% threshold"
+            exit 1
+          fi
+          echo "OK: coverage ${TOTAL_COV}% meets the 85% threshold"
+          # Expose values as job outputs for the badge job (write permission
+          # is scoped to the badge job only, not inherited by test steps).
+          echo "coverage_pct=${TOTAL_COV_FULL}" >> "$GITHUB_OUTPUT"
+          echo "coverage_int=${TOTAL_COV}"      >> "$GITHUB_OUTPUT"
+
+      - name: Smoke-run the pipeline entry points
+        run: |
+          set -e
+          # Cheap end-to-end sanity: enumerate the corpus and verify the
+          # documented invariants hold (1,310 games / 694 positions are
+          # load-bearing numbers in README and docs).
+          python -m minillm.dataset --out /tmp/ci-data
+          python - <<'PY'
+          import json, pathlib
+          meta = json.loads(pathlib.Path("/tmp/ci-data/meta.json").read_text())
+          assert meta["n_all_games"] == 1310, meta
+          print("OK: corpus enumerates 1,310 games")
+          PY
+
+      - name: No-AI-attribution gate
+        run: |
+          set -e
+          # .github/ is excluded because the workflow tree contains the very
+          # regex this step uses; excluding it prevents the step from
+          # blocking itself.
+          MATCH=$(git grep -nE 'Co-Authored-By:[[:space:]]*Claude|Generated with Claude|🤖' \
+            -- . ':!.github/' || true)
+          if [ -n "$MATCH" ]; then
+            echo "FAIL: AI-attribution patterns found:"
+            echo "$MATCH"
+            exit 1
+          fi
+          echo "OK: no AI-attribution patterns"
+
+      - name: Every uses reference is SHA-pinned
+        run: |
+          set -e
+          # Every `uses:` reference across all workflows under
+          # .github/workflows/ MUST be pinned to a 40-hex-char commit SHA.
+          # Catches future PRs that introduce a floating tag (`@v4`,
+          # `@main`, ...) at PR time rather than waiting for the next
+          # OpenSSF Scorecard run. The accepted right boundary after the 40
+          # hex chars is end-of-line OR whitespace OR `#` (the start of the
+          # version comment); anything else fails. Lowercase-only hex class:
+          # Dependabot writes SHAs in lowercase by contract, so an
+          # uppercase-hex SHA is a manual edit and SHOULD fail the gate.
+          BAD=$(grep -EnR "uses:[[:space:]]*[^#@[:space:]]+@(v[0-9]+(\.[0-9]+)*|main|master|[a-zA-Z]+)" .github/workflows/ \
+            | grep -vE "@[a-f0-9]{40}( |$|#)" || true)
+          if [ -n "$BAD" ]; then
+            echo "FAIL: unpinned actions detected (must be 40-hex commit SHA):"
+            echo "$BAD"
+            exit 1
+          fi
+          COUNT=$(grep -EhR "uses:[[:space:]]*[^[:space:]]+@[a-f0-9]{40}( |$|#)" .github/workflows/ | wc -l | tr -d ' ')
+          echo "OK: ${COUNT} SHA-pinned uses: refs across .github/workflows/"
+
+  badge:
+    name: Refresh coverage badge
+    runs-on: ubuntu-24.04
+    needs: test
+    # Only push the badge when merging to main; skip on PRs and non-main pushes.
+    if: success() && github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: write  # required only for this job's push to coverage-badge branch
+    steps:
+      - name: Generate self-hosted coverage badge (SVG)
+        run: |
+          set -e
+          COVERAGE_PCT="${{ needs.test.outputs.coverage_pct }}"
+          COVERAGE_INT="${{ needs.test.outputs.coverage_int }}"
+          PCT="${COVERAGE_INT}"
+          if   [ "$PCT" -ge 90 ]; then COLOR="#4c1";    LABEL_BG="#555";
+          elif [ "$PCT" -ge 80 ]; then COLOR="#97ca00"; LABEL_BG="#555";
+          elif [ "$PCT" -ge 70 ]; then COLOR="#dfb317"; LABEL_BG="#555";
+          else                          COLOR="#e05d44"; LABEL_BG="#555";
+          fi
+          mkdir -p /tmp/badge
+          cat > /tmp/badge/coverage.svg <<SVG
+          <svg xmlns="http://www.w3.org/2000/svg" width="104" height="20" role="img" aria-label="coverage: ${COVERAGE_PCT}%">
+            <title>coverage: ${COVERAGE_PCT}%</title>
+            <linearGradient id="s" x2="0" y2="100%">
+              <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
+              <stop offset="1" stop-opacity=".1"/>
+            </linearGradient>
+            <clipPath id="r"><rect width="104" height="20" rx="3" fill="#fff"/></clipPath>
+            <g clip-path="url(#r)">
+              <rect width="61" height="20" fill="${LABEL_BG}"/>
+              <rect x="61" width="43" height="20" fill="${COLOR}"/>
+              <rect width="104" height="20" fill="url(#s)"/>
+            </g>
+            <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="110">
+              <text x="315" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="510">coverage</text>
+              <text x="315" y="140" transform="scale(.1)" fill="#fff" textLength="510">coverage</text>
+              <text x="815" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="330">${COVERAGE_PCT}%</text>
+              <text x="815" y="140" transform="scale(.1)" fill="#fff" textLength="330">${COVERAGE_PCT}%</text>
+            </g>
+          </svg>
+          SVG
+          echo "Generated badge for ${COVERAGE_PCT}% (color ${COLOR})"
+
+      - name: Push coverage badge to coverage-badge branch
+        run: |
+          set -e
+          COVERAGE_PCT="${{ needs.test.outputs.coverage_pct }}"
+          STAGE=$(mktemp -d)
+          cd "$STAGE"
+          git init -q
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          cp /tmp/badge/coverage.svg .
+          git checkout -q -b coverage-badge
+          git add coverage.svg
+          git commit -q -m "ci: refresh coverage badge (${COVERAGE_PCT}%)"
+          # Do NOT interpolate the token into the URL — token-in-URL ends up
+          # in the git config of the staging dir, in process listings of
+          # `git push` arguments, and in error-path logs. `http.extraHeader`
+          # sends the Authorization header at request time without baking it
+          # into config or argv.
+          git -c http.extraHeader="Authorization: Bearer ${GITHUB_TOKEN}" push -q --force \
+            "https://github.com/${GITHUB_REPOSITORY}.git" \
+            HEAD:refs/heads/coverage-badge
+          echo "Pushed badge to coverage-badge branch"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  secret-scan:
+    # gitleaks scans for inadvertently committed secrets. The
+    # branch-protection rule references this job by its NAME
+    # ("gitleaks secret scan"), so the name string is load-bearing.
+    # This repo is owned by a personal account, so no GITLEAKS_LICENSE
+    # secret is required (free for personal use).
+    name: gitleaks secret scan
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: write   # required so gitleaks can comment on the PR
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          # gitleaks-action uses env.GITHUB_TOKEN for PR comments, not
+          # git-stored credentials. Safe to drop.
+          persist-credentials: false
+      - name: gitleaks scan
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
