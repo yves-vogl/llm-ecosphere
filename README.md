@@ -135,7 +135,7 @@ minillm/
   play.py        interactive play
   inspect_attention.py  print attention heads
   utils.py       device, seeding, checkpoint loading
-tests/           56 tests: rules, solver, tokenizers, masking, causality
+tests/           76 tests: rules, solver, tokenizers, masking, causality, arena
 docs/            the guided tour (start at docs/00-overview.md)
 data/, runs/     generated artifacts (gitignored, reproducible)
 .github/         CI, SAST, secret scan, commit lint, Pages deploy, Dependabot
@@ -164,6 +164,12 @@ codebase, with "In a real LLM" asides connecting it to production scale:
 
 For teaching: [learning paths + a 3-hour workshop script](docs/learning-paths.md),
 and a [glossary](docs/glossary.md) that grounds every LLM term in this repo's code.
+
+Deep dives: [why this exists](docs/motivation.md) ·
+[anatomy of the model](docs/anatomy.md) ·
+[the mathematics](docs/deep-dive-math.md) ·
+[looking inside — the Logit Lens, the Jacobian Lens and J-space](docs/deep-dive-lenses.md) ·
+[outlook to frontier models](docs/outlook.md).
 
 ## Contributing
 

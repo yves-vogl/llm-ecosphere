@@ -57,6 +57,8 @@ markdown_extensions:
           format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
+  - pymdownx.arithmatex:
+      generic: true
   - toc:
       permalink: true
       # GitHub-compatible slugs, so heading anchors written for the GitHub
@@ -68,6 +70,7 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Why this exists: motivation.md
   - The guided tour:
       - "00 · Overview": 00-overview.md
       - "01 · The game and its exact solver": 01-the-game.md
@@ -81,9 +84,19 @@ nav:
       - "08 · Exercises: make it yours": 08-exercises.md
       - "09 · Lab report: the character-level tokenizer": 09-char-tokenizer-lab.md
       - "10 · Why GPUs? The hardware under the pipeline": 10-gpu-cuda.md
+  - Deep dives:
+      - "Anatomy of a tiny GPT: every part, and how to change it": anatomy.md
+      - "The mathematics: tensors, matrices, formulas": deep-dive-math.md
+      - "Looking inside: the Logit Lens, the Jacobian Lens, and J-space": deep-dive-lenses.md
+      - "Outlook: from this miniature to a frontier model": outlook.md
   - Teaching & reference:
       - "Learning paths & workshop guide": learning-paths.md
       - Glossary: glossary.md
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 
 exclude_docs: |
   **/.DS_Store
