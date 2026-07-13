@@ -8,20 +8,36 @@ Two stages, selected with --stage:
             stack bottom-up, when a game ends, who won. It does NOT
             particularly try to win — it imitates the average game.
 
-  finetune  continues from the pretrained checkpoint on expert games
-            (data/expert_games.jsonl), with the loss masked so only the
-            solver's perfect moves are imitated (opponent moves get
-            target -1 and are ignored). This is the exact shape of
-            supervised finetuning (SFT) in real LLM pipelines: same
-            objective, curated data, masked non-assistant turns.
+  finetune  continues from the pretrained checkpoint, in one of two
+            SFT objectives selected with --objective (finetune only;
+            default "expert", reproducing the original behaviour):
+
+              expert    trains on expert games (data/expert_games.jsonl),
+                        with the loss masked so only the solver's perfect
+                        moves are imitated (opponent moves get target -1
+                        and are ignored). Imitates minimax-optimal play:
+                        unbeatable, draws against a perfect opponent.
+
+              gambler   trains on DECISIVE games from the full
+                        enumeration (data/all_games.jsonl; draws
+                        dropped), with the loss masked so only the
+                        WINNING side's moves are imitated (the loser's
+                        moves get target -1). Imitates whoever happened
+                        to win — aggressive lines that are exploitable
+                        by strong play, the opposite of "expert".
+
+Both objectives are the exact shape of supervised finetuning (SFT) in
+real LLM pipelines: same next-token objective, curated data, masked
+non-assistant turns.
 
 The mechanics in both stages are the textbook recipe used from GPT-2 to
 today's frontier models: AdamW, linear warmup + cosine decay, gradient
 clipping, evaluate on held-out data, keep the checkpoint with the best
 validation loss.
 
-Run: python -m minillm.train --stage pretrain   (or `make pretrain`)
-     python -m minillm.train --stage finetune   (or `make finetune`)
+Run: python -m minillm.train --stage pretrain                     (or `make pretrain`)
+     python -m minillm.train --stage finetune                     (or `make finetune`)
+     python -m minillm.train --stage finetune --objective gambler  (or `make model-gambler`)
 """
 
 from __future__ import annotations
@@ -35,7 +51,7 @@ from pathlib import Path
 import torch
 
 from .config import ModelConfig
-from .dataset import build_tensors, read_jsonl, split_games
+from .dataset import build_tensors, read_jsonl, split_games, to_gambler_games
 from .model import GPT
 from .tokenizer import TOKENIZERS, get_tokenizer
 from .utils import pick_device, set_seed
@@ -45,6 +61,9 @@ STAGE_DEFAULTS = {
     "pretrain": (3000, 1e-3, "all_games.jsonl"),
     "finetune": (1500, 2e-4, "expert_games.jsonl"),
 }
+# finetune --objective gambler overrides the corpus file: it trains on
+# decisive games from the full enumeration, not the solver's games.
+GAMBLER_CORPUS_FILE = "all_games.jsonl"
 
 
 def lr_at(step: int, max_steps: int, max_lr: float, warmup: int, min_lr: float) -> float:
@@ -85,6 +104,10 @@ def full_split_loss(model: GPT, x: torch.Tensor, y: torch.Tensor, batch: int = 1
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train the Drop-Tac-Toe GPT")
     parser.add_argument("--stage", required=True, choices=("pretrain", "finetune"))
+    parser.add_argument("--objective", default="expert", choices=("expert", "gambler"),
+                        help="finetune only (default: expert, the original unbeatable "
+                             "SFT behaviour); gambler imitates the WINNING side of "
+                             "decisive games instead — aggressive, exploitable play")
     parser.add_argument("--data-dir", default="data")
     parser.add_argument("--out-dir", default=None, help="default: runs/<stage>")
     parser.add_argument("--steps", type=int, default=None, help="default: 3000 / 1500")
@@ -110,7 +133,13 @@ def main() -> None:
     parser.add_argument("--dropout", type=float, default=0.1)
     args = parser.parse_args()
 
+    if args.stage != "finetune" and args.objective != "expert":
+        raise SystemExit("--objective is only meaningful for --stage finetune")
+    is_gambler = args.stage == "finetune" and args.objective == "gambler"
+
     default_steps, default_lr, corpus_file = STAGE_DEFAULTS[args.stage]
+    if is_gambler:
+        corpus_file = GAMBLER_CORPUS_FILE
     steps = args.steps or default_steps
     max_lr = args.lr or default_lr
     min_lr = max_lr * 0.1
@@ -124,8 +153,16 @@ def main() -> None:
     # Data
     # ------------------------------------------------------------------
     games = read_jsonl(Path(args.data_dir) / corpus_file)
+    if is_gambler:
+        # Decisive games only, each tagged with a "winner" field — see
+        # to_gambler_games in dataset.py. This happens *after* read_jsonl
+        # and *before* split_games, exactly where the expert path would
+        # otherwise proceed straight to the split, so the expert code
+        # path below (is_gambler == False) is completely untouched.
+        games = to_gambler_games(games)
     train_games, val_games = split_games(games, val_frac=args.val_frac)
-    expert_only = args.stage == "finetune"
+    expert_only = args.stage == "finetune" and not is_gambler
+    winner_only = is_gambler
 
     # ------------------------------------------------------------------
     # Model: fresh for pretraining, loaded from checkpoint for finetuning.
@@ -171,15 +208,17 @@ def main() -> None:
     model.to(device)
     model.train()
 
-    x_train, y_train = build_tensors(train_games, tokenizer, config.block_size, expert_only)
-    x_val, y_val = build_tensors(val_games, tokenizer, config.block_size, expert_only)
+    x_train, y_train = build_tensors(train_games, tokenizer, config.block_size, expert_only, winner_only)
+    x_val, y_val = build_tensors(val_games, tokenizer, config.block_size, expert_only, winner_only)
     x_train, y_train = x_train.to(device), y_train.to(device)
     x_val, y_val = x_val.to(device), y_val.to(device)
 
     optimizer = model.configure_optimizer(args.weight_decay, max_lr)
 
     n_train_tokens = int((y_train != -1).sum())
+    objective_label = args.objective if args.stage == "finetune" else "n/a (pretrain)"
     print(f"stage        {args.stage} ({init_note})")
+    print(f"objective    {objective_label}")
     print(f"tokenizer    {tokenizer.name} (vocab {tokenizer.vocab_size}, "
           f"up to {tokenizer.max_game_tokens} tokens per game)")
     print(f"device       {device.type}")
@@ -222,7 +261,8 @@ def main() -> None:
                 torch.save(
                     model.checkpoint_dict(stage=args.stage, step=step,
                                           val_loss=val_loss, val_frac=args.val_frac,
-                                          tokenizer=tokenizer.name),
+                                          tokenizer=tokenizer.name,
+                                          objective=args.objective),
                     out_dir / "model.pt",
                 )
                 marker = "  <- saved"

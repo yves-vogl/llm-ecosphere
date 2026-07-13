@@ -29,7 +29,7 @@ from pathlib import Path
 
 import torch
 
-from .game import O, X
+from .game import O, RESULT_DRAW, RESULT_O, RESULT_X, X
 from .solver import EMPTY, describe_root_value, enumerate_all_games, enumerate_expert_games, negamax
 from .tokenizer import MAX_GAME_TOKENS, Tokenizer
 
@@ -59,6 +59,7 @@ def build_tensors(
     tokenizer: Tokenizer,
     block_size: int,
     expert_only: bool = False,
+    winner_only: bool = False,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Games -> (x, y) training tensors of shape (N, block_size).
 
@@ -69,8 +70,16 @@ def build_tensors(
       * padding after <eos>, always;
       * with expert_only=True additionally every OPPONENT move — the
         finetuning trick borrowed from real SFT, where the user's turns
-        are masked and only the assistant's turns are imitated.
+        are masked and only the assistant's turns are imitated. Requires
+        each game dict to carry an "expert" field (X or O), as produced
+        by enumerate_expert_games.
+      * with winner_only=True additionally every LOSING side's move —
+        the "gambler" objective: imitate whoever WON a decisive game,
+        exploitable aggression rather than minimax-optimal play. Requires
+        each game dict to carry a "winner" field (X or O), as produced by
+        to_gambler_games. Mutually exclusive with expert_only.
     """
+    assert not (expert_only and winner_only), "expert_only and winner_only are mutually exclusive"
     x = torch.full((len(games), block_size), tokenizer.pad_id, dtype=torch.long)
     y = torch.full((len(games), block_size), -1, dtype=torch.long)
 
@@ -80,7 +89,7 @@ def build_tensors(
         x[i, : len(seq) - 1] = torch.tensor(seq[:-1], dtype=torch.long)
         for t in range(len(seq) - 1):
             target = seq[t + 1]
-            if expert_only and tokenizer.is_move_id(target):
+            if (expert_only or winner_only) and tokenizer.is_move_id(target):
                 # The target sits at seq index t+1; seq[0] is <bos>, and
                 # each move occupies tokens_per_move ids after it (one at
                 # move level, two at char level — both characters of a
@@ -89,10 +98,40 @@ def build_tensors(
                 # ...), O the even ones.
                 move_no = t // tokenizer.tokens_per_move + 1
                 mover = X if move_no % 2 == 1 else O
-                if mover != game["expert"]:
-                    continue  # leave -1: do not imitate the opponent
+                imitated = game["expert"] if expert_only else game["winner"]
+                if mover != imitated:
+                    continue  # leave -1: do not imitate the opponent / loser
             y[i, t] = target
     return x, y
+
+
+# ----------------------------------------------------------------------
+# Gambler data view
+# ----------------------------------------------------------------------
+def to_gambler_games(games: list[dict]) -> list[dict]:
+    """Filter `games` (e.g. data/all_games.jsonl) down to DECISIVE games
+    and tag each with a "winner" field, mirroring the "expert" field
+    enumerate_expert_games attaches to its output.
+
+    Pass the result to build_tensors(..., winner_only=True): the loss
+    then imitates the WINNING side's moves only. Since these games come
+    from the full enumeration (not the solver), the winner did not
+    necessarily play optimally — the model learns aggressive lines that
+    happen to win, which real strong play can exploit. That is the
+    "gambler" objective, deliberately the opposite of the unbeatable
+    "expert" one.
+
+    Draws are dropped entirely: there is no winner to imitate. Input
+    games are never mutated — each output row is a shallow copy.
+    """
+    gambler_games: list[dict] = []
+    for game in games:
+        if game["result"] == RESULT_DRAW:
+            continue
+        assert game["result"] in (RESULT_X, RESULT_O), f"unknown result token {game['result']!r}"
+        winner = X if game["result"] == RESULT_X else O
+        gambler_games.append({**game, "winner": winner})
+    return gambler_games
 
 
 # ----------------------------------------------------------------------

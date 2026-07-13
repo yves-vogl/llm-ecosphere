@@ -1,6 +1,6 @@
 PY := .venv/bin/python
 
-.PHONY: setup test data pretrain finetune eval play sample attention all
+.PHONY: setup test data pretrain finetune model-gambler eval play sample attention all
 
 ## One-time environment setup (uses uv; see README for a plain-venv alternative)
 setup:
@@ -22,6 +22,11 @@ pretrain:
 ## Stage 3: finetune on expert games (the model learns to play WELL)
 finetune:
 	$(PY) -m minillm.train --stage finetune
+
+## Stage 3, gambler variant: finetune on decisive games, imitating only the
+## WINNING side (exploitable aggression, not minimax-optimal play)
+model-gambler:
+	$(PY) -m minillm.train --stage finetune --objective gambler --out-dir runs/exp-gambler-move
 
 ## Stage 4: measure legality, refereeing and playing strength
 eval:
