@@ -200,6 +200,13 @@ scale. Read in order:
 11. **[10 · Why GPUs?](10-gpu-cuda.md)** — the hardware under the
     pipeline: CPU vs GPU, memory bandwidth, and what CUDA actually is.
 
+Teaching with this repo, or short on time? **[Learning
+paths](learning-paths.md)** maps three audience-specific routes through
+the chapters and includes a ready-to-run 3-hour workshop script. And when
+a term stops you mid-chapter, the **[glossary](glossary.md)** grounds
+every LLM concept — token, attention, loss masking, KV cache — in the
+running code of this repo.
+
 ## Source
 
 The code lives at

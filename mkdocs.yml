@@ -81,6 +81,9 @@ nav:
       - "08 · Exercises: make it yours": 08-exercises.md
       - "09 · Lab report: the character-level tokenizer": 09-char-tokenizer-lab.md
       - "10 · Why GPUs? The hardware under the pipeline": 10-gpu-cuda.md
+  - Teaching & reference:
+      - "Learning paths & workshop guide": learning-paths.md
+      - Glossary: glossary.md
 
 exclude_docs: |
   **/.DS_Store

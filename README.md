@@ -162,6 +162,9 @@ codebase, with "In a real LLM" asides connecting it to production scale:
 10. [Lab report: the character-level tokenizer](docs/09-char-tokenizer-lab.md) — exercise 1, solved and measured (spoilers!)
 11. [Why GPUs? The hardware under the pipeline](docs/10-gpu-cuda.md)
 
+For teaching: [learning paths + a 3-hour workshop script](docs/learning-paths.md),
+and a [glossary](docs/glossary.md) that grounds every LLM term in this repo's code.
+
 ## Contributing
 
 Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). PRs go
