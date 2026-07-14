@@ -1,9 +1,10 @@
-# Coverage scope for the CI gate: the core library. The five CLI entry
-# points below need trained checkpoints (train/evaluate/play/sample/
-# inspect_attention) or a terminal (play) — they are exercised by the
-# pipeline itself (`make all`) and by the CI corpus smoke test, not by
-# unit tests. Including them would turn the coverage number into a
-# constant ~48% that moves with CLI size instead of test quality.
+# Coverage scope for the CI gate: the core library. The CLI entry points
+# below need trained checkpoints (train/evaluate/sample/inspect_attention/
+# arena) or a terminal (play, and arena --vs human) — they are exercised by
+# the pipeline itself (`make all`), the arena's own hermetic tests, and the
+# CI corpus smoke test, not by full unit coverage. Including their
+# interactive and checkpoint-loading paths would move the number with CLI
+# size instead of core-library test quality.
 [run]
 omit =
     minillm/train.py
@@ -11,3 +12,4 @@ omit =
     minillm/play.py
     minillm/sample.py
     minillm/inspect_attention.py
+    minillm/arena.py
