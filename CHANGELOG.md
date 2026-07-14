@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-07-14
+
+Lab experiments, round one: a reinforcement-learning stage, a temperature
+sweep, and a multi-seed robustness rerun — each measured and verified against
+the exact solver.
+
 ### Added
 
 - **The RL gambler** (`minillm.rl`): a REINFORCE self-play gambler that
