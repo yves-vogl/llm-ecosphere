@@ -174,6 +174,8 @@ codebase, with "In a real LLM" asides connecting it to production scale:
 10. [Lab report: the character-level tokenizer](docs/09-char-tokenizer-lab.md) — exercise 1, solved and measured (spoilers!)
 11. [Why GPUs? The hardware under the pipeline](docs/10-gpu-cuda.md)
 12. [Lab report: the RL gambler](docs/rl-gambler.md) — exercise 10 (REINFORCE self-play), and a measured "alignment tax"
+13. [Lab report: the temperature sweep](docs/temperature-sweep.md) — exercise 4: the two checkpoints respond to temperature in mirror image
+14. [Multi-seed reruns](docs/09-char-tokenizer-lab.md#multi-seed-which-of-these-numbers-survive-a-reseed) — the char-vs-move strength claim, re-evaluated across three training seeds
 
 Use it: [get a model and play it](docs/use-a-model.md) ·
 [the models in detail](docs/the-models.md) ·

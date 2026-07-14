@@ -135,8 +135,10 @@ gap (95% vs 61%) is far outside sampling noise at 200 games, but the
 few-point differences elsewhere are not. Disentangling *why* — is the
 factorized policy inherently more drawish, or did the earlier
 best-val-loss checkpoint (step 200 vs a 1,500-step run) simply overfit
-less? — would take multi-seed reruns and is left as the natural follow-up
-experiment (combine with exercise 4's temperature sweep).
+less? — needed multi-seed reruns. We ran them; see "Multi-seed: which of
+these numbers survive a reseed?" below for the answer. (Exercise 4's
+temperature sweep got its own report,
+[temperature-sweep.md](temperature-sweep.md).)
 
 **3. Result refereeing dipped (97.7% vs 100.0%).** The result is now two
 tokens too, and the referee must get both right; the errors are the
@@ -151,6 +153,66 @@ character is nearly free). Normalize per *game* — loss × targets-per-game,
 both measured on the validation split — and the two models are almost
 indistinguishable: 0.7506 × 10.1 ≈ 7.6 nats/game vs 0.3835 × 19.2 ≈ 7.4
 nats/game. Same knowledge, different denominators.
+
+## Multi-seed: which of these numbers survive a reseed?
+
+Everything above is one seeded run per config. We reran the finetuning
+stage — the stage with all the interesting deltas — at three training
+seeds (1337, 1338, 1339) for both tokenizers; 1337 is the shipped
+default, so its column reproduces the numbers in the table above exactly.
+Each checkpoint was evaluated with the same fixed eval seed, so only
+training-init variance moves the metrics below — the random opponent, the
+solver positions, and the sampling draws are held constant across all six
+runs.
+
+| metric | move finetune (mean [min–max]) | char finetune (mean [min–max]) |
+|---|---:|---:|
+| vs optimal solver, draw rate | 82.2% [61–100] | 95.0% [95–95] |
+| vs random, win rate | 77.3% [73–80] | 76.3% [69–82] |
+| clean self-play games | 91.2% [88–96] | 98.2% [98.0–98.5] |
+| optimal-move rate | 85.3% [83–86] | 83.7% [83–85] |
+
+Per-seed, in training-seed order (1337 / 1338 / 1339): move draw-vs-solver
+runs 61.0 / 85.5 / 100.0, char draw-vs-solver runs 95.0 / 95.0 / 95.0;
+move win-vs-random runs 79.2 / 73.2 / 79.5, char win-vs-random runs 68.8 /
+81.5 / 78.8.
+
+**F1. The char wall is real and inherent.** Draw-vs-solver lands on
+exactly 95.0% for all three seeds — zero variance. This settles the open
+question point 2 raised above: the char model's drawishness against the
+perfect solver is not a lucky, less-overfit checkpoint. It is a property
+of the factorized column-then-row policy itself.
+
+**F2. The move model's headline number was a checkpoint lottery.**
+Draw-vs-solver swings from 61.0 to 85.5 to 100.0 across seeds — a mean of
+82.2%, but the shipped 61% was the pessimistic tail, not the typical
+outcome. The dramatic "95 vs 61" gap in the single-seed table was
+partly a single-seed artifact. The honest gap is char 95.0% (stable) vs
+move 82.2% (mean, high variance).
+
+**F3. As attackers they are tied.** Win-vs-random averages 77.3% for
+move and 76.3% for char, with fully overlapping ranges (73–80 vs 69–82).
+The single-seed "move is the sharper shark" story (79.2 vs 68.8) does not
+survive a reseed — 68.8% was char's low tail, and one char seed (81.5%)
+outright beat every move seed.
+
+**Revised conclusion.** The axis that separates these two models is not
+sharp-vs-solid — they attack random opponents equally well on average.
+It's *consistency*. The character/factorized policy is a reliable,
+low-variance drawer against the solver; the move policy is high-variance,
+its defensive strength hostage to which best-val-loss checkpoint you
+happen to land on. The legality gain does hold up across seeds (clean
+self-play 98.2% vs 91.2%, in the same direction on every seed). Stated
+plainly, the meta-lesson: one seed told two stories — move is sharper,
+char is a far better wall — and multi-seed shows one of those was real
+(char reliably draws) and the other was noise (the attacking strengths
+are actually tied). That's the whole argument for reporting seeds instead
+of a single run.
+
+**Reproduce it:** 3 seeds x {move, char} x {pretrain, finetune} —
+`python -m minillm.train --seed S [--tokenizer char --block-size 24] ...`
+then `python -m minillm.evaluate --ckpt .../model.pt --out .../eval.json`
+per checkpoint, aggregated as mean and [min-max] across the three seeds.
 
 > **In a real LLM:** you just reproduced both halves of the tokenization
 > debate. BPE vocabularies (GPT-2's 50k, Llama's 32k–128k) buy short

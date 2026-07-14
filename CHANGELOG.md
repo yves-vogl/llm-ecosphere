@@ -20,6 +20,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   matches can now sample the model's move instead of taking the argmax, so
   playing strength can be measured across a temperature sweep. Temperature 0
   is the exact previous behaviour.
+- **Two lab reports for the round-one experiments.** `docs/temperature-sweep.md`
+  (exercise 4) shows the move-level and char-level checkpoints respond to
+  temperature in mirror image — each greedy policy sits at an opposite
+  extreme of the sharp-vs-solid frontier, and temperature nudges both toward
+  the middle. A new multi-seed section in `docs/09-char-tokenizer-lab.md`
+  reruns the char-vs-move claim across three training seeds and revises the
+  single-seed conclusion: the char "wall" is a stable 95% draw rate versus
+  the solver on every seed, the move model's draw rate is a high-variance
+  checkpoint lottery (61–100%), and the two are statistically tied as
+  attackers — the distinguishing axis is consistency, not sharpness.
 
 ## [0.1.0] — 2026-07-14
 

@@ -89,6 +89,7 @@ nav:
       - "09 · Lab report: the character-level tokenizer": 09-char-tokenizer-lab.md
       - "10 · Why GPUs? The hardware under the pipeline": 10-gpu-cuda.md
       - "Lab report: the RL gambler (REINFORCE self-play)": rl-gambler.md
+      - "Lab report: the temperature sweep (exercise 4)": temperature-sweep.md
   - Deep dives:
       - "Anatomy of a tiny GPT: every part, and how to change it": anatomy.md
       - "The mathematics: tensors, matrices, formulas": deep-dive-math.md
