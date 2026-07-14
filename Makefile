@@ -1,6 +1,6 @@
 PY := .venv/bin/python
 
-.PHONY: setup test data pretrain finetune model-gambler eval play arena sample attention all
+.PHONY: setup test data pretrain finetune model-base model-expert model-gambler model-rl-gambler zoo eval play arena sample attention all
 
 ## One-time environment setup (uses uv; see README for a plain-venv alternative)
 setup:
@@ -23,10 +23,42 @@ pretrain:
 finetune:
 	$(PY) -m minillm.train --stage finetune
 
+## Scenario alias for the base model (same recipe as `pretrain`)
+model-base:
+	$(PY) -m minillm.train --stage pretrain
+
+## Scenario alias for the expert model (same recipe as `finetune`)
+model-expert:
+	$(PY) -m minillm.train --stage finetune
+
 ## Stage 3, gambler variant: finetune on decisive games, imitating only the
 ## WINNING side (exploitable aggression, not minimax-optimal play)
 model-gambler:
 	$(PY) -m minillm.train --stage finetune --objective gambler --out-dir runs/exp-gambler-move
+
+## RL gambler: REINFORCE self-play vs a random opponent — maximizes wins
+## directly. Strongest vs random, but pure reward optimization collapses
+## free-running legality (the "alignment tax", measured — see docs/rl-gambler.md)
+model-rl-gambler:
+	$(PY) -m minillm.rl
+
+## Local equivalent of the CI model zoo (.github/workflows/models.yml):
+## build the full scenario matrix {base,expert,gambler} x {move,char} into
+## runs/zoo-*, training the base once per tokenizer and finetuning expert
+## and gambler from it
+zoo:
+	for TOK in move char; do \
+		BLK=""; \
+		[ "$$TOK" = "char" ] && BLK="--block-size 24"; \
+		$(PY) -m minillm.train --stage pretrain --tokenizer "$$TOK" $$BLK \
+			--out-dir "runs/zoo-base-$$TOK"; \
+		$(PY) -m minillm.train --stage finetune \
+			--init-from "runs/zoo-base-$$TOK/model.pt" \
+			--out-dir "runs/zoo-expert-$$TOK"; \
+		$(PY) -m minillm.train --stage finetune --objective gambler \
+			--init-from "runs/zoo-base-$$TOK/model.pt" \
+			--out-dir "runs/zoo-gambler-$$TOK"; \
+	done
 
 ## Stage 4: measure legality, refereeing and playing strength
 eval:

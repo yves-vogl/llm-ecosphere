@@ -13,3 +13,4 @@ omit =
     minillm/sample.py
     minillm/inspect_attention.py
     minillm/arena.py
+    minillm/rl.py

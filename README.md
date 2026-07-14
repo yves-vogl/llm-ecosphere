@@ -61,12 +61,24 @@ Everything runs on plain CPU.
 
 ```bash
 make setup      # create .venv and install torch + pytest
-make test       # 56 unit tests
+make test       # 86 unit tests
 make data       # enumerate every game        (seconds)
 make pretrain   # learn the rules             (~2 min CPU)
 make finetune   # learn to play well          (~1 min CPU)
 make eval       # measure what it learned     (seconds)
 make play       # play against it!
+```
+
+Named scenarios (`pretrain`/`finetune` aliases plus the gambler variant),
+and the local model zoo:
+
+```bash
+make model-base       # == pretrain
+make model-expert     # == finetune (minimax imitation)
+make model-gambler    # finetune, winner-imitation variant
+make model-rl-gambler # REINFORCE self-play — strongest vs random (see docs/rl-gambler.md)
+make zoo              # full {base,expert,gambler} x {move,char} matrix locally
+make arena            # pit any model against a human, random, solver, or another model
 ```
 
 Without uv:
@@ -161,6 +173,7 @@ codebase, with "In a real LLM" asides connecting it to production scale:
 9. [Exercises: make it yours](docs/08-exercises.md)
 10. [Lab report: the character-level tokenizer](docs/09-char-tokenizer-lab.md) — exercise 1, solved and measured (spoilers!)
 11. [Why GPUs? The hardware under the pipeline](docs/10-gpu-cuda.md)
+12. [Lab report: the RL gambler](docs/rl-gambler.md) — exercise 10 (REINFORCE self-play), and a measured "alignment tax"
 
 Use it: [get a model and play it](docs/use-a-model.md) ·
 [the models in detail](docs/the-models.md) ·
