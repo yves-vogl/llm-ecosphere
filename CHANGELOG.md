@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   legality). Lab report in `docs/rl-gambler.md`.
 - Scenario Makefile aliases `model-base`, `model-expert`,
   `model-rl-gambler`, and `zoo` (the local model-zoo matrix).
+- A `--temperature` flag on `minillm.evaluate` (exercise 4): the strength
+  matches can now sample the model's move instead of taking the argmax, so
+  playing strength can be measured across a temperature sweep. Temperature 0
+  is the exact previous behaviour.
 
 ## [0.1.0] — 2026-07-14
 
