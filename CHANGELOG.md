@@ -7,18 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] — 2026-07-14
+
+First public release.
+
 ### Added
 
-- The complete lab: Drop-Tac-Toe game engine with exact negamax solver
-  (1,310 enumerable games, solver-proven draw), from-scratch ~0.8M-parameter
-  GPT, pretraining + SFT-style finetuning with opponent-move loss masking,
-  behavioural evaluation suite, interactive play, attention inspection.
-- Two interchangeable tokenizers: move-level (15 tokens) and
+- **The lab.** Drop-Tac-Toe game engine with an exact negamax solver
+  (1,310 enumerable games, solver-proven draw), a from-scratch
+  ~0.8M-parameter GPT, pretraining plus SFT-style finetuning with
+  opponent-move loss masking, a behavioural evaluation suite, interactive
+  play, and attention inspection.
+- **Two interchangeable tokenizers**: move-level (15 tokens) and
   character-level (13 tokens), selectable via `--tokenizer`; checkpoints
   record their tokenizer.
-- Guided documentation in eleven chapters (`docs/00`–`docs/10`), including
-  a worked lab report on the character-level tokenizer and a chapter on
-  GPU/CPU/CUDA fundamentals, published via MkDocs Material to GitHub Pages.
-- Repository infrastructure: CI (pytest + coverage gate + corpus smoke
-  test), Semgrep SAST, gitleaks secret scan, commit-message lint,
-  OpenSSF Scorecard, Dependabot, SHA-pinned workflows.
+- **Training scenarios** beyond the base model: the minimax *expert*
+  (finetune), the *gambler* (`--objective gambler`, winner-imitation SFT —
+  aggressive and exploitable), and the *RL gambler* (`minillm.rl`,
+  REINFORCE self-play — the strongest player against a random opponent, and
+  a measured demonstration of the "alignment tax": optimizing purely for
+  wins collapses free-running legality).
+- **The arena** (`minillm.arena`): pit any checkpoint against a human, a
+  random player, the perfect solver, or another checkpoint.
+- **Model zoo CI** (`models.yml`): trains the full
+  {base, expert, gambler} × {move, char} matrix and attaches each model
+  plus its `eval.json` to the release.
+- **Documentation**: a guided tour (`docs/00`–`docs/10`) plus an on-ramp
+  (use a model, the models in detail, a hands-on tutorial), deep dives
+  (model anatomy, the mathematics, interpretability lenses including
+  Anthropic's 2026 J-space, a frontier outlook), lab reports (character
+  tokenizer, RL gambler), a glossary, learning paths, and a motivation
+  essay — published via MkDocs Material (with MathJax) to GitHub Pages.
+- **Repository infrastructure**: CI (pytest + 85% coverage gate + corpus
+  smoke test + no-AI-attribution and SHA-pin gates + a self-hosted coverage
+  badge), Semgrep SAST, gitleaks secret scan, commit-message lint,
+  OpenSSF Scorecard, Dependabot, and a Pages deploy — all with SHA-pinned
+  actions, plus branch protection on `main`.
