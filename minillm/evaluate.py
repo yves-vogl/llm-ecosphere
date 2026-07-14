@@ -36,15 +36,25 @@ from .utils import (default_checkpoint, greedy_unit, legal_move_logprobs,
                     load_model, pick_device, sample_unit, tokenizer_for_checkpoint)
 
 
-def model_move_strict(model, tokenizer, game: Game, device) -> str:
+def model_move_strict(model, tokenizer, game: Game, device,
+                      temperature: float = 0.0, generator=None) -> str:
     """The model's favourite LEGAL move (argmax over legal moves only).
 
     Moves are ranked by their joint token log-probability, which at
     move level is the familiar argmax over legal tokens and at char
     level chains both characters' conditionals: p("B")·p("2"|"B").
+
+    With ``temperature > 0`` the move is *sampled* from the legal-move
+    distribution softmaxed at that temperature (renormalized over the
+    legal set), instead of taken greedily — the strict analogue of
+    ``play.py``'s sampling. ``temperature == 0`` is exact argmax and is
+    byte-for-byte identical to the original behaviour.
     """
     legal = game.legal_moves()
     scores = legal_move_logprobs(model, tokenizer, game.history, legal, device)
+    if temperature and temperature > 0.0:
+        probs = torch.softmax(scores / temperature, dim=0)
+        return legal[int(torch.multinomial(probs, 1, generator=generator))]
     return legal[int(scores.argmax())]
 
 
@@ -124,11 +134,13 @@ def eval_rollout_legality(model, tokenizer, device, n_games: int, seed: int) -> 
 # ----------------------------------------------------------------------
 # Playing strength
 # ----------------------------------------------------------------------
-def play_one(model, tokenizer, device, model_side: str, opponent) -> str:
+def play_one(model, tokenizer, device, model_side: str, opponent,
+             temperature: float = 0.0, generator=None) -> str:
     game = Game()
     while not game.is_over():
         if game.to_move == model_side:
-            move = model_move_strict(model, tokenizer, game, device)
+            move = model_move_strict(model, tokenizer, game, device,
+                                     temperature, generator)
         else:
             move = opponent(game)
         game.push(move)
@@ -138,11 +150,17 @@ def play_one(model, tokenizer, device, model_side: str, opponent) -> str:
     return "win" if winner == model_side else "loss"
 
 
-def eval_matches(model, tokenizer, device, opponent_factory, n_games: int, seed: int) -> dict:
+def eval_matches(model, tokenizer, device, opponent_factory, n_games: int, seed: int,
+                 temperature: float = 0.0) -> dict:
     rng = random.Random(seed)
     opponent = opponent_factory(rng)
+    # A dedicated torch generator keeps the model's sampling reproducible
+    # given --seed; at temperature 0 the model plays greedily and needs none.
+    generator = (torch.Generator().manual_seed(seed)
+                 if temperature and temperature > 0.0 else None)
     outcomes = Counter(
-        play_one(model, tokenizer, device, "X" if i % 2 == 0 else "O", opponent)
+        play_one(model, tokenizer, device, "X" if i % 2 == 0 else "O", opponent,
+                 temperature, generator)
         for i in range(n_games)
     )
     return {
@@ -200,6 +218,12 @@ def main() -> None:
     parser.add_argument("--data-dir", default="data")
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--temperature", type=float, default=0.0,
+                        help="sampling temperature for the model's move in the "
+                             "strength matches (0 = argmax, the default; >0 "
+                             "samples from the legal-move distribution). Affects "
+                             "vs_random / vs_optimal only — the solver-agreement "
+                             "'optimal-move rate' always measures the argmax move.")
     parser.add_argument("--rollout-games", type=int, default=200)
     parser.add_argument("--games-vs-random", type=int, default=400)
     parser.add_argument("--games-vs-optimal", type=int, default=200)
@@ -216,21 +240,25 @@ def main() -> None:
     _, val_games = split_games(read_jsonl(Path(args.data_dir) / "all_games.jsonl"),
                                val_frac=ckpt.get("val_frac", 0.1))
 
+    temp_note = "" if args.temperature <= 0 else f", strength temp {args.temperature:g}"
     print(f"evaluating {ckpt_path} (stage {ckpt.get('stage')}, "
           f"tokenizer {tokenizer.name}, "
-          f"val loss {ckpt.get('val_loss', float('nan')):.4f})\n")
+          f"val loss {ckpt.get('val_loss', float('nan')):.4f}{temp_note})\n")
 
     results = {
         "checkpoint": str(ckpt_path),
         "stage": ckpt.get("stage"),
         "tokenizer": tokenizer.name,
+        "temperature": args.temperature,
         "legality_teacher_forced": eval_on_val_games(model, tokenizer, val_games, device),
         "legality_free_running": eval_rollout_legality(
             model, tokenizer, device, args.rollout_games, args.seed),
         "vs_random": eval_matches(
-            model, tokenizer, device, random_opponent, args.games_vs_random, args.seed),
+            model, tokenizer, device, random_opponent, args.games_vs_random,
+            args.seed, args.temperature),
         "vs_optimal": eval_matches(
-            model, tokenizer, device, optimal_opponent, args.games_vs_optimal, args.seed),
+            model, tokenizer, device, optimal_opponent, args.games_vs_optimal,
+            args.seed, args.temperature),
         "solver_agreement": eval_expert_agreement(
             model, tokenizer, device, args.agreement_rollouts, args.seed),
     }
