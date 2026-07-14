@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The RL gambler** (`minillm.rl`): a REINFORCE self-play gambler that
+  maximises wins directly against a random opponent — the strongest player
+  in the lab when constrained to legal moves, and a measured demonstration
+  of the "alignment tax" (optimizing purely for wins collapses free-running
+  legality). Lab report in `docs/rl-gambler.md`.
+- Scenario Makefile aliases `model-base`, `model-expert`,
+  `model-rl-gambler`, and `zoo` (the local model-zoo matrix).
+
 ## [0.1.0] — 2026-07-14
 
 First public release.
@@ -22,11 +32,8 @@ First public release.
   character-level (13 tokens), selectable via `--tokenizer`; checkpoints
   record their tokenizer.
 - **Training scenarios** beyond the base model: the minimax *expert*
-  (finetune), the *gambler* (`--objective gambler`, winner-imitation SFT —
-  aggressive and exploitable), and the *RL gambler* (`minillm.rl`,
-  REINFORCE self-play — the strongest player against a random opponent, and
-  a measured demonstration of the "alignment tax": optimizing purely for
-  wins collapses free-running legality).
+  (finetune) and the *gambler* (`--objective gambler`, winner-imitation
+  SFT — aggressive and exploitable).
 - **The arena** (`minillm.arena`): pit any checkpoint against a human, a
   random player, the perfect solver, or another checkpoint.
 - **Model zoo CI** (`models.yml`): trains the full
