@@ -64,6 +64,6 @@ jobs:
 
       - name: Upload SARIF to GitHub code-scanning
         if: always()  # upload SARIF even when semgrep exits non-zero, so findings surface in the UI
-        uses: github/codeql-action/upload-sarif@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3.36.2
+        uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4.37.1
         with:
           sarif_file: semgrep.sarif
