@@ -142,7 +142,7 @@ detail. That device-agnosticism is why `pick_device` can offer
 
 The performance frontier, however, lives *below* PyTorch. The attention in
 `minillm/model.py` calls itself "the naive, readable one (no
-FlashAttention, no KV cache)" — FlashAttention is the canonical example of
+FlashAttention)" — FlashAttention is the canonical example of
 what CUDA-level rethinking buys: mathematically the same softmax attention,
 but restructured into a single kernel that tiles the computation through the
 GPU's fast on-chip memory instead of materializing the full `(T, T)`

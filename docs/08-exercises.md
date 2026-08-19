@@ -173,7 +173,10 @@ tokens. Correctness gate: greedy generation (`temperature=0`) from the same
 prompt must produce token-for-token identical output with and without cache.
 
 **Files.** `minillm/model.py` (`CausalSelfAttention.forward`, `GPT.forward`,
-`GPT.generate`).
+`GPT.generate`). (The worked solution now ships in exactly those places,
+strictly opt-in behind `generate(use_cache=True)` — build your own first,
+then compare against the measured
+[KV-cache lab report](kv-cache.md).)
 
 **Hint.** Two classic bugs await. First, the position embedding: a token fed
 alone is still at absolute position `T_so_far`, so `torch.arange(T)` in

@@ -20,7 +20,10 @@ as GPT-2/3/4, Llama or Claude use, shrunk to ~0.8M parameters:
 Everything is spelled out with explicit tensor shapes in the comments;
 `docs/04-model.md` walks through the math at reading speed. The
 attention implementation is intentionally the naive, readable one (no
-FlashAttention, no KV cache) — a worked example, not a speed record.
+FlashAttention) — a worked example, not a speed record. A KV cache
+exists, but strictly opt-in (exercise 5, `generate(use_cache=True)`;
+lab report in docs/kv-cache.md): the default path recomputes the full
+prefix every step, exactly as before.
 
 Shape glossary used below:  B = batch size, T = sequence length ("time"),
 C = n_embd (channels), nh = n_head, hs = head size = C / nh.
@@ -68,7 +71,22 @@ class CausalSelfAttention(nn.Module):
         # only used by inspect_attention.py.
         self.last_attn: torch.Tensor | None = None
 
-    def forward(self, x: torch.Tensor, record_attn: bool = False) -> torch.Tensor:
+    def forward(
+        self,
+        x: torch.Tensor,
+        record_attn: bool = False,
+        kv_cache: dict | None = None,
+    ) -> torch.Tensor:
+        """kv_cache (exercise 5) is an opt-in dict owned by generate():
+
+        pass an empty dict on the first call (the "prefill": x is the
+        whole prompt, and the computed keys/values are stored under
+        "k"/"v"); on later calls pass the same dict with x containing
+        ONLY the new token — its k and v are appended to the cache, and
+        the single query attends over the full cached history. With
+        kv_cache=None (the default, and the only mode training uses)
+        the math below is exactly the naive version it always was.
+        """
         B, T, C = x.size()
         nh, hs = self.n_head, C // self.n_head
 
@@ -79,15 +97,33 @@ class CausalSelfAttention(nn.Module):
         k = k.view(B, T, nh, hs).transpose(1, 2)
         v = v.view(B, T, nh, hs).transpose(1, 2)
 
+        if kv_cache is not None:
+            # Prepend the cached past: keys/values now cover the whole
+            # sequence, queries only the new token(s). This is the entire
+            # trick — k and v for old positions never change, so
+            # recomputing them every step (the default path) is pure
+            # waste during generation.
+            if "k" in kv_cache:
+                k = torch.cat((kv_cache["k"], k), dim=2)
+                v = torch.cat((kv_cache["v"], v), dim=2)
+            kv_cache["k"], kv_cache["v"] = k, v
+        S = k.size(2)  # keys span the full history; S == T when uncached
+
         # Attention scores: every query against every key.
-        # (B, nh, T, hs) @ (B, nh, hs, T) -> (B, nh, T, T).
+        # (B, nh, T, hs) @ (B, nh, hs, S) -> (B, nh, T, S).
         # The 1/sqrt(hs) scaling keeps the dot products in a range where
         # softmax still has usable gradients.
         att = (q @ k.transpose(-2, -1)) / math.sqrt(hs)
 
         # Causal mask: set scores for future positions to -inf so that
-        # softmax gives them exactly zero weight.
-        att = att.masked_fill(self.causal_mask[:, :, :T, :T] == 0, float("-inf"))
+        # softmax gives them exactly zero weight. Query row i sits at
+        # absolute position S - T + i, so the valid slice of the
+        # triangular mask is rows S-T..S-1 against columns 0..S-1 —
+        # which collapses to the familiar [:T, :T] when nothing is
+        # cached, and to "no masking at all" for a single cached query
+        # (every key is in its past; masking it anyway is the classic
+        # KV-cache bug the exercise warns about).
+        att = att.masked_fill(self.causal_mask[:, :, S - T : S, :S] == 0, float("-inf"))
         att = F.softmax(att, dim=-1)
         if record_attn:
             self.last_attn = att.detach()
@@ -134,8 +170,13 @@ class Block(nn.Module):
         self.ln_2 = nn.LayerNorm(config.n_embd)
         self.mlp = MLP(config)
 
-    def forward(self, x: torch.Tensor, record_attn: bool = False) -> torch.Tensor:
-        x = x + self.attn(self.ln_1(x), record_attn=record_attn)
+    def forward(
+        self,
+        x: torch.Tensor,
+        record_attn: bool = False,
+        kv_cache: dict | None = None,
+    ) -> torch.Tensor:
+        x = x + self.attn(self.ln_1(x), record_attn=record_attn, kv_cache=kv_cache)
         x = x + self.mlp(self.ln_2(x))
         return x
 
@@ -187,6 +228,8 @@ class GPT(nn.Module):
         idx: torch.Tensor,
         targets: torch.Tensor | None = None,
         record_attn: bool = False,
+        kv_caches: list[dict] | None = None,
+        pos_offset: int = 0,
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """idx: (B, T) token ids. Returns (logits, loss).
 
@@ -197,16 +240,26 @@ class GPT(nn.Module):
                          are excluded from the loss.
         Inference call:  targets=None; as an optimization only the last
                          position's logits are computed: (B, 1, vocab).
+        Cached call:     kv_caches is one dict per layer, owned by
+                         generate() (exercise 5). idx then holds only the
+                         NEW token(s), and pos_offset says where they sit
+                         in the full sequence — a token fed alone is
+                         still at absolute position pos_offset, and
+                         embedding it at position 0 instead is the other
+                         classic KV-cache bug the exercise warns about.
         """
         B, T = idx.size()
-        assert T <= self.config.block_size, f"sequence of length {T} exceeds block_size"
-        pos = torch.arange(T, device=idx.device)
+        assert pos_offset + T <= self.config.block_size, (
+            f"sequence of length {pos_offset + T} exceeds block_size"
+        )
+        pos = torch.arange(pos_offset, pos_offset + T, device=idx.device)
 
         tok_emb = self.transformer.wte(idx)          # (B, T, C): what each token means
         pos_emb = self.transformer.wpe(pos)          # (T, C): where each token sits
         x = self.transformer.drop(tok_emb + pos_emb)  # (B, T, C)
-        for block in self.transformer.h:
-            x = block(x, record_attn=record_attn)
+        for i, block in enumerate(self.transformer.h):
+            x = block(x, record_attn=record_attn,
+                      kv_cache=None if kv_caches is None else kv_caches[i])
         x = self.transformer.ln_f(x)
 
         if targets is not None:
@@ -246,6 +299,7 @@ class GPT(nn.Module):
         allowed_ids: list[int] | None = None,
         stop_id: int | None = None,
         generator: torch.Generator | None = None,
+        use_cache: bool = False,
     ) -> torch.Tensor:
         """Autoregressive sampling: feed the sequence, take the logits of
         the last position, pick one token, append, repeat.
@@ -256,12 +310,40 @@ class GPT(nn.Module):
         instead ranks whole moves via utils.legal_move_logprobs, which
         also covers multi-token moves). stop_id ends generation early
         (usually <eos>).
+
+        use_cache=True (exercise 5) switches the loop from "re-run the
+        whole prefix every step" (O(T^2) work per token) to a KV cache:
+        the prompt is run once to fill per-layer caches, then every step
+        feeds ONLY the newest token (O(T) per token). Greedy output is
+        token-for-token identical either way — the tests pin that down.
+        The cache cannot slide a full context window, so the whole
+        generation must fit in block_size; every transcript in this
+        repo does.
         """
         assert idx.size(0) == 1, "generate() is written for batch size 1, for clarity"
         assert top_k is None or top_k >= 1, "top_k must be >= 1"
-        for _ in range(max_new_tokens):
-            idx_cond = idx[:, -self.config.block_size :]
-            logits, _ = self(idx_cond)
+        kv_caches = None
+        if use_cache:
+            assert idx.size(1) + max_new_tokens - 1 <= self.config.block_size, (
+                "use_cache=True cannot slide the context window — ask for "
+                "fewer tokens or fall back to use_cache=False"
+            )
+            kv_caches = [{} for _ in self.transformer.h]
+        for step in range(max_new_tokens):
+            if kv_caches is None:
+                # Naive path (the default): the entire prefix goes through
+                # all blocks again, every single step.
+                idx_cond = idx[:, -self.config.block_size :]
+                logits, _ = self(idx_cond)
+            elif step == 0:
+                # Prefill: one pass over the whole prompt fills every
+                # layer's cache and yields the first next-token logits.
+                logits, _ = self(idx, kv_caches=kv_caches)
+            else:
+                # Steady state: only the newest token goes in; its
+                # absolute position is everything that came before it.
+                logits, _ = self(idx[:, -1:], kv_caches=kv_caches,
+                                 pos_offset=idx.size(1) - 1)
             logits = logits[:, -1, :]  # (1, vocab)
 
             if allowed_ids is not None:

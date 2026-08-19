@@ -31,6 +31,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exactly along the order symmetry: legality (order-invariant under
   gravity) survives at 98.6%, refereeing collapses to 73.3% and the
   model starts losing to a random opponent.
+- **An opt-in KV cache in `GPT.generate`** (exercise 5):
+  `generate(use_cache=True)` prefills per-layer key/value caches from the
+  prompt, then feeds single tokens — O(T) work per generated token instead
+  of re-running the whole prefix (O(T²)). Off by default; the naive,
+  readable path is untouched and remains the one training and every
+  pipeline stage use. Greedy output is token-for-token identical with and
+  without the cache (pinned by tests). Lab report in `docs/kv-cache.md`.
 
 ## [0.2.0] — 2026-07-14
 
