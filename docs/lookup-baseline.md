@@ -119,6 +119,6 @@ make test                                            # includes the table's unit
     --out runs/baseline-vs-pretrain.json
 ```
 
-Next: the [loss-curves lab](loss-curves.md) shows what the network does
-with its capacity when the corpus is small, or back to the
+Next: the [char-tokenizer lab](09-char-tokenizer-lab.md) applies the
+same one-variable methodology to tokenization, or back to the
 [exercises](08-exercises.md).
