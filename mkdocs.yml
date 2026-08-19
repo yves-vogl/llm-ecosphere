@@ -92,6 +92,7 @@ nav:
       - "Lab report: the temperature sweep (exercise 4)": temperature-sweep.md
       - "Lab report: the mirror dedup (exercise 2)": mirror-dedup.md
       - "Lab report: the ablations (exercise 3)": ablations.md
+      - "Lab report: the KV cache (exercise 5)": kv-cache.md
   - Deep dives:
       - "Anatomy of a tiny GPT: every part, and how to change it": anatomy.md
       - "The mathematics: tensors, matrices, formulas": deep-dive-math.md

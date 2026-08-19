@@ -283,7 +283,7 @@ and any state it needs it must compute from the sequence. Chapter 04's
 heads attending back to the moves in the column currently being played —
 state tracking made visible.
 
-## No KV cache (on purpose)
+## No KV cache (by default, on purpose)
 
 Each iteration of `generate()` reruns the full forward pass over the whole
 sequence. The keys and values that attention computes for positions
@@ -293,14 +293,17 @@ step, feeds only the newest token through the model, attending against the
 cached past. That turns per-step cost from O(T²) to O(T) and is the single
 most important serving optimization in real systems.
 
-Here it is deliberately absent — `minillm/model.py`'s module docstring says so
-up front: "The attention implementation is intentionally the naive, readable
-one (no FlashAttention, no KV cache) — a worked example, not a speed record."
+Here the default path deliberately does without one — `minillm/model.py`'s
+module docstring says so up front: "The attention implementation is
+intentionally the naive, readable one (no FlashAttention) — a worked
+example, not a speed record." Exercise 5 asks you to add the cache, and the
+worked solution now ships as strictly opt-in (`generate(use_cache=True)`,
+measured in the [KV-cache lab report](kv-cache.md)); nothing in the
+pipeline uses it unless asked.
 
 With sequences capped at 12 tokens and ~0.8M parameters, the recompute costs
-microseconds; a cache would double the code in `CausalSelfAttention` for no
-observable benefit. But sequences of 100k tokens change the arithmetic
-entirely.
+microseconds; the cache earns its keep as a lesson, not as a speedup. But
+sequences of 100k tokens change the arithmetic entirely.
 
 > **In a real LLM:** the KV cache dominates serving memory. For a
 > Llama-70B-class model at long context, the cached keys and values for a
@@ -313,8 +316,9 @@ entirely.
 > extends it token by token.
 
 Adding a KV cache to `generate()` — and verifying it produces bit-identical
-output to the naive loop — is one of the exercises in
-`docs/08-exercises.md`.
+output to the naive loop — is exercise 5 in `docs/08-exercises.md`; try it
+before reading the worked solution in the
+[KV-cache lab report](kv-cache.md).
 
 Next: [07 — Evaluation: what did it learn?](07-evaluation.md) — teacher-forced
 legality, free-running cleanliness, tournament strength versus random and

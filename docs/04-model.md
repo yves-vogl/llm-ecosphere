@@ -170,14 +170,16 @@ before the result is added to the residual stream — without it, head 0's
 output could only ever land in channels 0–31.
 
 > **In a real LLM:** this is the textbook implementation, kept naive on
-> purpose ("no FlashAttention, no KV cache — a worked example, not a speed
-> record", per the module docstring). Production stacks compute the same
-> mathematics but never materialize the full T×T matrix: FlashAttention
-> tiles the computation through GPU SRAM, turning memory cost from O(T²) to
-> O(T), which is what makes 100k+ token contexts affordable. And at
-> inference, a KV cache stores keys and values of past tokens so each new
-> token costs O(T) instead of re-running the full O(T²) pass — here, with
-> T ≤ 16, `generate()` simply recomputes everything each step.
+> purpose ("no FlashAttention — a worked example, not a speed record", per
+> the module docstring). Production stacks compute the same mathematics but
+> never materialize the full T×T matrix: FlashAttention tiles the
+> computation through GPU SRAM, turning memory cost from O(T²) to O(T),
+> which is what makes 100k+ token contexts affordable. And at inference, a
+> KV cache stores keys and values of past tokens so each new token costs
+> O(T) instead of re-running the full O(T²) pass — here, with T ≤ 16,
+> `generate()` recomputes everything each step by default; the opt-in cache
+> (exercise 5, [lab report](kv-cache.md)) exists to teach the mechanism,
+> not to save microseconds.
 
 ## MLP: expand, GELU, contract
 

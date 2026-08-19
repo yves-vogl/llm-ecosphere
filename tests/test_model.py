@@ -72,3 +72,80 @@ def test_checkpoint_roundtrip(tmp_path):
 def test_weight_tying():
     model = GPT(CFG)
     assert model.transformer.wte.weight.data_ptr() == model.lm_head.weight.data_ptr()
+
+
+# ----------------------------------------------------------------------
+# KV cache (exercise 5): cached and naive paths must agree exactly
+# ----------------------------------------------------------------------
+def test_kv_cache_logits_match_the_full_forward_at_every_step():
+    """Incremental (prefill + one token at a time) logits must equal the
+    naive full-prefix forward pass at every generation step."""
+    torch.manual_seed(0)
+    model = GPT(CFG).eval()
+    ids = torch.randint(0, CFG.vocab_size, (1, 12))
+
+    kv_caches = [{} for _ in model.transformer.h]
+    prompt = ids[:, :4]
+    cached, _ = model(prompt, kv_caches=kv_caches)  # prefill
+    full, _ = model(prompt)
+    assert torch.allclose(cached[:, -1], full[:, -1], atol=1e-5)
+
+    for t in range(4, ids.size(1)):
+        cached, _ = model(ids[:, t : t + 1], kv_caches=kv_caches, pos_offset=t)
+        full, _ = model(ids[:, : t + 1])
+        assert torch.allclose(cached[:, -1], full[:, -1], atol=1e-5)
+        # The cache now covers t+1 positions in every layer.
+        assert all(c["k"].size(2) == t + 1 for c in kv_caches)
+
+
+def test_kv_cache_greedy_generation_is_token_for_token_identical():
+    """The exercise's correctness gate, for both vocabulary shapes."""
+    for vocab, block in ((15, 16), (13, 24)):  # move-level and char-level
+        torch.manual_seed(1)
+        model = GPT(ModelConfig(vocab_size=vocab, block_size=block, dropout=0.0)).eval()
+        prompt = torch.tensor([[1]])
+        naive = model.generate(prompt, max_new_tokens=block - 1, temperature=0.0)
+        cached = model.generate(prompt, max_new_tokens=block - 1, temperature=0.0,
+                                use_cache=True)
+        assert naive.tolist() == cached.tolist()
+
+
+def test_kv_cache_respects_stop_and_allowed_ids():
+    model = GPT(CFG).eval()
+    idx = torch.tensor([[1]])
+    out = model.generate(idx, max_new_tokens=3, temperature=0.0, allowed_ids=[7],
+                         use_cache=True)
+    assert out[0, 1:].tolist() == [7, 7, 7]
+    out = model.generate(idx, max_new_tokens=5, temperature=0.0, allowed_ids=[2],
+                         stop_id=2, use_cache=True)
+    assert out.shape[1] == 2
+
+
+def test_kv_cache_refuses_to_slide_the_context_window():
+    """The cache stores absolute positions, so the whole generation must
+    fit in block_size — the naive path crops a window instead, which a
+    cache of absolute positions cannot do."""
+    import pytest
+
+    model = GPT(CFG).eval()
+    idx = torch.tensor([[1]])
+    with pytest.raises(AssertionError):
+        model.generate(idx, max_new_tokens=CFG.block_size + 1, temperature=0.0,
+                       use_cache=True)
+
+
+def test_pos_offset_embeds_tokens_at_their_absolute_position():
+    """A token fed alone is still at its absolute position — the first
+    classic KV-cache bug is embedding it at position 0."""
+    torch.manual_seed(2)
+    model = GPT(CFG).eval()
+    ids = torch.randint(0, CFG.vocab_size, (1, 6))
+    kv_caches = [{} for _ in model.transformer.h]
+    model(ids[:, :5], kv_caches=kv_caches)
+    right, _ = model(ids[:, 5:6], kv_caches=kv_caches, pos_offset=5)
+    wrong_caches = [{} for _ in model.transformer.h]
+    model(ids[:, :5], kv_caches=wrong_caches)
+    wrong, _ = model(ids[:, 5:6], kv_caches=wrong_caches, pos_offset=0)
+    full, _ = model(ids)
+    assert torch.allclose(right[:, -1], full[:, -1], atol=1e-5)
+    assert not torch.allclose(wrong[:, -1], full[:, -1], atol=1e-4)

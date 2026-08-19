@@ -245,12 +245,14 @@ query/key/value plus the cached past — turning per-step cost from quadratic
 to linear in sequence length. At long contexts this is the single most
 important serving optimization in real systems.
 
-**In this repo:** deliberately absent — `GPT.generate()` recomputes the full
-forward pass every step, fine at a 12-token maximum and microseconds of
-cost. The
+**In this repo:** opt-in, and off by default — `GPT.generate()` recomputes
+the full forward pass every step unless called with `use_cache=True`
+(exercise 5's worked solution; measured in the
+[KV-cache lab report](kv-cache.md)). At a 12-token maximum the recompute
+costs microseconds, which is why the
 [`minillm/model.py`](https://github.com/yves-vogl/llm-ecosphere/blob/main/minillm/model.py)
-docstring calls the attention "naive ... no FlashAttention, no KV cache" on
-purpose. Implementing one is exercise 5 in [08 — Exercises](08-exercises.md).
+docstring still calls the attention "naive" on purpose. Implementing the
+cache yourself is exercise 5 in [08 — Exercises](08-exercises.md).
 
 ## L
 
