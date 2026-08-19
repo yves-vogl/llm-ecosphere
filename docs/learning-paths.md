@@ -157,11 +157,15 @@ parts.
   already holds a trained checkpoint and eval JSON before anyone arrives.
   If a live run glitches, stalls, or a laptop is slower than expected, you
   can fall back to the pre-baked results without derailing the session.
-- **But the live run is the default plan, not a fallback:** per the
-  README, `make data` is seconds, `make pretrain` is about 2 minutes of CPU
-  time, and `make finetune` is about 1 minute — all comfortably live-demo
-  length. Training is seeded, so the numbers on screen will land close to
-  the ones quoted throughout the docs.
+- **But the live run is the default plan, not a fallback:** `make data`
+  is seconds, `make pretrain` is a few minutes (2–5 depending on the
+  machine — efficiency-core laptops and anything else running land at
+  the high end; a dry run measured ~6 CPU-minutes on Apple silicon), and
+  `make finetune` one to two minutes — still live-demo length, but do
+  the dry run on the actual presentation machine beforehand rather than
+  trusting these numbers. Training is seeded, so the numbers on screen
+  will land exactly on the ones quoted throughout the docs (a dry run
+  reproduced the full eval table digit for digit).
 
 ### Session arc
 
@@ -180,8 +184,10 @@ is? If you could enumerate "all of English", what would change about how
 LLMs are built and evaluated?
 
 **(b) Data + tokenization live demo — 25 min.** Run `make data` live and
-open `data/meta.json` and `data/all_games.jsonl` — 1,310 games, split
-1,179 train / 131 validate. Then open `minillm/tokenizer.py` and show the
+open `data/meta.json` and `data/all_games.jsonl` — 1,310 games (the
+90/10 train/validate split, 1,179 / 131, is not in `meta.json`; it is
+printed by the training banner in step (c), so mention it here and point
+at it there). Then open `minillm/tokenizer.py` and show the
 15-token move-level vocabulary (`<pad>` `<bos>` `<eos>`, nine cells, three
 result tokens) next to the 13-token character-level one from
 [09](09-char-tokenizer-lab.md) — same game, `B1 A1 B2 C1 B3 #X` vs
@@ -195,7 +201,8 @@ when a move becomes two tokens instead of one?
 `STAGE_DEFAULTS` table in `minillm/train.py` (pretrain: 3000 steps on all
 1,310 games; finetune: 1500 steps on the 334-game expert corpus with the
 opponent's moves masked out of the loss). Run `make pretrain` live; while it
-runs (~2 min), explain teacher forcing and cross-entropy. When it finishes,
+runs (a few minutes — see the prep note above), explain teacher forcing and
+cross-entropy. When it finishes,
 open `runs/pretrain/log.csv` and read the arc straight off the numbers:
 validation loss starts at 2.815 (essentially the 15-token clueless baseline
 of ln 15 ≈ 2.708), and ends at 0.764, with the best checkpoint saved at step
@@ -229,7 +236,7 @@ trade-off ("alignment tax") show up in real systems?
 
 **(e) Look inside attention heads — 30 min.** Run
 `make attention` (attention matrices for the prefix `B1 A1 B2`), then
-`python -m minillm.inspect_attention` with a second prefix that breaks
+`.venv/bin/python -m minillm.inspect_attention` with a second prefix that breaks
 ties between "looks two positions back" and "tracks the same column" —
 e.g. compare `"B1 A1 B2"` against `"B1 C1 A1 B2"`. `inspect_attention.py`'s
 docstring predicts three species of heads: previous-move heads, same-column

@@ -105,7 +105,7 @@ python -m minillm.arena --model runs/pretrain/model.pt --vs human
 solver's moves are training targets — the opponent's moves are seen as
 context but never imitated. **Objective:** SFT, `--objective expert`
 (the default). See `minillm/dataset.py`'s `expert_only` path and
-[05 — Training](05-training.md#finetuning--sft) for the masking
+[05 — Training](05-training.md#the-finetune-stage) for the masking
 mechanics.
 
 **Character.** Expert is finetuned to imitate minimax-optimal play,
@@ -194,7 +194,7 @@ of the corpus you imitate. It requires the model to react to what the
 during training rather than a curated transcript after the fact. That is
 reinforcement learning, specifically the self-play stage this repo
 deliberately stops short of — sketched as exercise 10 in
-[08 — Exercises](08-exercises.md#10-an-rl-stage-reinforce-self-play-after-sft-a-weekend).
+[08 — Exercises](08-exercises.md#10-an-rl-stage-reinforce-self-play-after-sft--a-weekend).
 An RL loop that rewards outcomes against an improving opponent, rather
 than imitating a fixed set of winning transcripts, is the missing piece
 between "aggressive" and "aggressive and dominant."
