@@ -1,0 +1,20 @@
+{
+  "n_all_games": 655,
+  "n_expert_games": 167,
+  "results_all": {
+    "#X": 308,
+    "#=": 154,
+    "#O": 193
+  },
+  "results_expert": {
+    "#X": 111,
+    "#=": 26,
+    "#O": 30
+  },
+  "shortest_game_moves": 5,
+  "longest_game_moves": 9,
+  "root_value": "perfect play ends in a draw",
+  "positions_solved": 694,
+  "max_sequence_tokens": 12,
+  "mirror_deduped": true
+}

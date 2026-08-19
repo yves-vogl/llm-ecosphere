@@ -14,7 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   games (334 → 167 expert games) — so the symmetry-generalization
   experiment can pretrain on a corpus with the mirror redundancy removed.
   The filter (`dedup_mirror_games`, with `mirror_move` / `mirror_game`)
-  lives in `minillm/dataset.py`. Lab report in `docs/mirror-dedup.md`.
+  lives in `minillm/dataset.py`. Lab report in `docs/mirror-dedup.md`,
+  with a new symmetry-consistency probe (does the policy commute with
+  mirroring?). Measured verdict: legality and — after finetuning on the
+  full expert corpus — strength survive the halving, but mirror
+  consistency *drops* from 81–82% to 60–68%: the full-corpus model had
+  been memorizing both halves, not internalizing the symmetry, and in a
+  closed world the mirror "duplicates" turn out to be the training
+  signal for the invariance itself.
 
 ## [0.2.0] — 2026-07-14
 

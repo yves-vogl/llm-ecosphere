@@ -70,14 +70,14 @@ Same seeds, same eval protocol as the reference runs. Baselines from
 
 | metric | pretrain (full) | pretrain (deduped) | finetune (full) | finetune (deduped pretrain) |
 |---|---:|---:|---:|---:|
-| argmax legal (teacher-forced) | 100.0% | XXA | 99.5% | XXB |
-| legal probability mass | 99.6% | XXC | 99.1% | XXD |
-| free-running 1st-try legal | 99.8% | XXE | 98.8% | XXF |
-| clean self-play games | 98.0% | XXG | 90.5% | XXH |
-| result prediction | 99.2% | XXI | 100.0% | XXJ |
-| vs random W/D/L | 41.8/20.2/38.0% | XXK | 79.2/14.5/6.2% | XXL |
-| vs optimal solver W/D/L | 0/0/100% | XXM | 0/61/39% | XXN |
-| optimal-move rate | 70.3% | XXO | 86.5% | XXP |
+| argmax legal (teacher-forced) | 100.0% | 99.1% | 99.5% | 99.6% |
+| legal probability mass | 99.6% | 98.2% | 99.1% | 97.6% |
+| free-running 1st-try legal | 99.8% | 98.7% | 98.8% | 95.4% |
+| clean self-play games | 98.0% | 91.0% | 90.5% | **70.0%** |
+| result prediction | 99.2% | 93.8% | 100.0% | 93.8% |
+| vs random W/D/L | 41.8/20.2/38.0% | 28.2/23.5/48.2% | 79.2/14.5/6.2% | 75.0/15.5/9.5% |
+| vs optimal solver W/D/L | 0/0/100% | 0/0/100% | 0/61/39% | 0/**63.5**/36.5% |
+| optimal-move rate | 70.3% | 74.6% | 86.5% | 85.0% |
 
 ## A measurement the eval suite does not have: symmetry consistency
 
@@ -121,12 +121,56 @@ def symmetry_consistency(ckpt_path, n_rollouts=300, seed=0):
 |---|---:|
 | pretrain, full corpus | 81.2% |
 | finetune, full corpus | 82.1% |
-| pretrain, mirror-deduped | XXQ |
-| finetune from deduped pretrain | XXR |
+| pretrain, mirror-deduped | 60.1% |
+| finetune from deduped pretrain | 68.1% |
 
 ## Reading the numbers
 
-XX-ANALYSIS
+**1. The headline: the model was memorizing both halves.** The sharp
+probe answers first. Symmetry consistency *drops* when the corpus is
+deduplicated — 81.2% → 60.1% at pretrain, 82.1% → 68.1% after
+finetuning. If the full-corpus model had internalized the A↔C
+invariance, deleting the redundant mirrors would have cost nothing;
+instead, the policy of the deduped model is visibly *handed*, favouring
+the lexicographically-smaller half it was trained on. Which means the
+original ~81% consistency was never an internalized symmetry at all: it
+was the data's symmetry, reflected. Every mirrored pair taught both
+halves separately, and behavioural symmetry emerged from double
+memorization. The exercise's proposition — "if legality and strength
+survive, the model is genuinely generalizing across the symmetry" —
+resolves against the model on the symmetry half.
+
+**2. What does survive: the rules, and (after SFT) the strength.**
+Legality barely moves (99.1% argmax-legal, 98.7% free-running first-try)
+— gravity is a local, column-wise pattern and every column still appears
+plentifully in the kept half. And the finetuned-from-deduped model plays
+nearly as well as the reference: 75.0% wins vs random (79.2 reference),
+63.5% draws against the perfect solver (61.0), 85.0% optimal moves
+(86.5). The finetuning stage used the full, mirror-closed expert corpus
+in both runs, so this is the SFT data doing symmetric repair work on an
+asymmetric prior — and mostly succeeding, at least on the strength
+metrics. (The pretrain-stage vs-random dip to 28.2% wins and the bump to
+74.6% optimal moves are two faces of the same fact: "imitate the average
+game" now means imitating a *biased* average; the multi-seed lesson from
+the char lab applies to reading too much into either number.)
+
+**3. The costs concentrate where coverage is the product: fluency and
+refereeing.** Clean self-play games fall from 98.0% to 91.0% at
+pretrain and — the largest single delta in the table — from 90.5% to
+70.0% after finetuning; result prediction drops to 93.8% on both
+checkpoints. Free-running rollouts and full-game refereeing are exactly
+the tasks that wander across the *whole* game space, mirrored half
+included, and there the deduped model is a partial stranger. The
+comparable val losses agree: finetuning from the deduped prior bottoms
+out at 0.5835 against the reference 0.4771 on the *same* expert corpus
+and split — the prior lost half the world, and SFT does not fully buy
+it back.
+
+**The verdict on "augmentation in reverse".** In an enumerated, closed
+world the mirror games were never redundant duplicates — they were the
+training signal for the symmetry itself. Halving the corpus kept the
+rules and (with symmetric SFT) most of the strength, but the invariance
+the duplicates encoded went with them.
 
 > **In a real LLM:** the production twin of this experiment is corpus
 > deduplication. GPT-3's and Llama's training sets are aggressively
