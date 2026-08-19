@@ -90,6 +90,7 @@ nav:
       - "10 · Why GPUs? The hardware under the pipeline": 10-gpu-cuda.md
       - "Lab report: the RL gambler (REINFORCE self-play)": rl-gambler.md
       - "Lab report: the temperature sweep (exercise 4)": temperature-sweep.md
+      - "Lab report: the mirror dedup (exercise 2)": mirror-dedup.md
   - Deep dives:
       - "Anatomy of a tiny GPT: every part, and how to change it": anatomy.md
       - "The mathematics: tensors, matrices, formulas": deep-dive-math.md

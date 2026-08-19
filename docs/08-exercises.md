@@ -83,6 +83,9 @@ generalizing across the symmetry rather than memorizing both halves.
 
 **Files.** A small filter in or next to `minillm/dataset.py` (the `main()`
 that writes `data/all_games.jsonl` is the natural hook); nothing else changes.
+(A worked filter now ships as `dedup_mirror_games` with a `--dedup-mirror`
+flag on `minillm.dataset` — write your own first, then compare against the
+measured lab report in [the mirror-dedup lab](mirror-dedup.md).)
 
 **Hint.** `mirror(move)` is a 1-line translation table A→C, C→A, B→B on
 `move[0]`. In this corpus no complete game is self-symmetric (a transcript
