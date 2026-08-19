@@ -268,6 +268,9 @@ confidence, evidence. Every head gets a row, including the boring ones —
 a frequent one.
 
 **Files.** None to modify; `--layer` and `--head` flags narrow the output.
+(A full 16-row catalogue with summary statistics now exists — build your
+own first, then compare against the measured
+[attention-taxonomy lab](attention-taxonomy.md).)
 
 **Hint.** One prefix cannot separate a "looks 2 positions back" head from a
 "looks at the same column" head — in `B1 A1 B2` those coincide. Choose

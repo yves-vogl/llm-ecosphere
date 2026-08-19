@@ -58,6 +58,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (79.8% vs 63.6%), and refereeing is the true generalization test — the
   table collapses to 45.0% result prediction (uniform-fallback base
   rate) where the networks score 99–100%.
+- **Attention-head taxonomy lab report** (`docs/attention-taxonomy.md`,
+  exercise 8): all 16 heads catalogued over four tie-breaking prefixes
+  with summary statistics (bos-weight, previous-move weight, far
+  same-column weight, normalized entropy). The docstring's three
+  promised species all exist and are organized by layer — layer 1 is
+  entirely previous-move heads, column/stack-geometry heads live in
+  layers 2–3, the pure `<bos>` sinks at the top, and layer 0 is diffuse
+  local mixing. Finetuning left the map mostly intact but half-repurposed
+  one layer-2 sink into a column tracker and sharpened the layer-3
+  column head.
 
 ## [0.2.0] — 2026-07-14
 
