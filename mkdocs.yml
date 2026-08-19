@@ -96,6 +96,7 @@ nav:
       - "Lab report: the loss curves (exercise 6)": loss-curves.md
       - "Lab report: the lookup-table baseline (exercise 7)": lookup-baseline.md
       - "Lab report: the attention-head taxonomy (exercise 8)": attention-taxonomy.md
+      - "Lab report: 4x4 Connect-3 (exercise 9)": 4x4-connect3.md
   - Deep dives:
       - "Anatomy of a tiny GPT: every part, and how to change it": anatomy.md
       - "The mathematics: tensors, matrices, formulas": deep-dive-math.md

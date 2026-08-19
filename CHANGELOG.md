@@ -68,6 +68,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   local mixing. Finetuning left the map mostly intact but half-repurposed
   one layer-2 sink into a column tracker and sharpened the layer-3
   column head.
+- **N-agnostic world plumbing and sampled corpora** (exercise 9):
+  `game.py` derives its winning lines from `_win_segments(n, win)`
+  (identical to the classic 8 lines at the shipped 3×3, pinned by
+  tests), state/stacks/rendering/validation derive from `N`/`COLS`, and
+  `solver.py` gains `sample_random_games` / `sample_expert_games` — the
+  corpus generators for boards too big to enumerate — behind
+  `minillm.dataset --sample N --sample-seed S`. Lab report in
+  `docs/4x4-connect3.md`: the 4×4 Connect-3 flip is now a two-constant
+  edit; 20,000 rollouts → 15,408 unique games (only 75 draws — the draw
+  nearly dies at 4×4), 41,750 positions solved, and the solver verdict
+  that **4×4 Connect-3 is a first-player win**, which moves the
+  vs-optimal ceiling from all-draws to win-as-X / lose-as-O — and the
+  finetuned model plays to that ceiling: 44.0/1.0/55.0 vs the perfect
+  solver (theoretical best 50/0/50; it converts the forced win in 88% of
+  its X games), 91.0% wins vs random, 93.3% optimal moves, 99.9%
+  argmax-legality over 15,614 held-out positions of a sampled world.
 
 ## [0.2.0] — 2026-07-14
 
