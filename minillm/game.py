@@ -21,16 +21,37 @@ from dataclasses import dataclass, field
 
 COLS = "ABC"
 N = 3  # board is N x N, and each column holds at most N pieces
+WIN = 3  # own pieces in a row needed to win
 X = "X"
 O = "O"
 
-# Every winning line as a list of (column, row) coordinates, 0-based,
-# row 0 = bottom. 3 columns + 3 rows + 2 diagonals = 8 lines.
-LINES: list[list[tuple[int, int]]] = (
-    [[(c, r) for r in range(N)] for c in range(N)]  # verticals
-    + [[(c, r) for c in range(N)] for r in range(N)]  # horizontals
-    + [[(i, i) for i in range(N)], [(i, N - 1 - i) for i in range(N)]]  # diagonals
-)
+assert len(COLS) == N, "one column label per column"
+ROWS = "".join(str(r) for r in range(1, N + 1))
+
+
+def _win_segments(n: int = N, win: int = WIN) -> list[list[tuple[int, int]]]:
+    """Every straight segment of `win` cells on an n x n board, as
+    (column, row) coordinates, 0-based, row 0 = bottom.
+
+    Scans the four line directions (horizontal, vertical, both
+    diagonals) from every anchor cell that leaves the segment on the
+    board. With win == n this reduces to the full-length lines — at the
+    shipped 3x3 exactly the classic 8 (3 verticals + 3 horizontals +
+    2 diagonals). With win < n (exercise 9's 4x4 Connect-3 world) it
+    enumerates every 3-cell winning window, which full-length lines
+    would miss entirely."""
+    segments = []
+    for dc, dr in ((1, 0), (0, 1), (1, 1), (1, -1)):
+        for c in range(n):
+            for r in range(n):
+                end_c, end_r = c + (win - 1) * dc, r + (win - 1) * dr
+                if 0 <= end_c < n and 0 <= end_r < n:
+                    segments.append([(c + i * dc, r + i * dr) for i in range(win)])
+    return segments
+
+
+# Every winning line: at the default 3x3, the classic 8.
+LINES: list[list[tuple[int, int]]] = _win_segments()
 
 RESULT_X = "#X"  # transcript token: X won
 RESULT_O = "#O"  # transcript token: O won
@@ -54,7 +75,7 @@ class Game:
     top: stacks == ["XO", "", "X"] means A1=X, A2=O, C1=X.
     """
 
-    stacks: list[str] = field(default_factory=lambda: ["", "", ""])
+    stacks: list[str] = field(default_factory=lambda: ["" for _ in range(N)])
     history: list[str] = field(default_factory=list)
 
     # ------------------------------------------------------------------
@@ -126,8 +147,10 @@ class Game:
         if self.is_over():
             raise IllegalMoveError("the game is already over")
         move = move.strip().upper()
-        if len(move) != 2 or move[0] not in COLS or move[1] not in "123":
-            raise IllegalMoveError(f"'{move}' is not a cell between A1 and C3")
+        if len(move) != 2 or move[0] not in COLS or move[1] not in ROWS:
+            raise IllegalMoveError(
+                f"'{move}' is not a cell between {COLS[0]}1 and {COLS[-1]}{N}"
+            )
         col = COLS.index(move[0])
         row = int(move[1]) - 1
         height = len(self.stacks[col])
@@ -168,6 +191,6 @@ class Game:
         for r in reversed(range(N)):
             cells = " ".join(self.piece_at(c, r) or "." for c in range(N))
             lines.append(f" {r + 1} | {cells}")
-        lines.append("   +------")
-        lines.append("     A B C")
+        lines.append("   +" + "-" * (2 * N))
+        lines.append("     " + " ".join(COLS))
         return "\n".join(lines)

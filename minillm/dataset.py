@@ -30,7 +30,9 @@ from pathlib import Path
 import torch
 
 from .game import COLS, O, RESULT_DRAW, RESULT_O, RESULT_X, X
-from .solver import EMPTY, describe_root_value, enumerate_all_games, enumerate_expert_games, negamax
+from .solver import (EMPTY, describe_root_value, enumerate_all_games,
+                     enumerate_expert_games, negamax, sample_expert_games,
+                     sample_random_games)
 from .tokenizer import MAX_GAME_TOKENS, Tokenizer
 
 
@@ -199,15 +201,29 @@ def main() -> None:
                              "of (game, mirror(game)) the lexicographically "
                              "smaller move sequence survives — half the corpus, "
                              "written to --out for a separate training run")
+    parser.add_argument("--sample", type=int, default=None, metavar="N",
+                        help="sample the corpora from N random rollouts per "
+                             "file instead of enumerating everything - the "
+                             "generator for boards too big to enumerate "
+                             "(exercise 9); deduplicated, deterministic per "
+                             "--sample-seed")
+    parser.add_argument("--sample-seed", type=int, default=0)
     args = parser.parse_args()
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
-    print("Enumerating every possible game ...")
-    all_games = enumerate_all_games()
-    print("Enumerating expert games (solver plays X, then O) ...")
-    expert_games = enumerate_expert_games(X) + enumerate_expert_games(O)
+    if args.sample:
+        print(f"Sampling {args.sample} random rollouts (seed {args.sample_seed}) ...")
+        all_games = sample_random_games(args.sample, args.sample_seed)
+        print("Sampling expert games (solver plays X, then O vs random) ...")
+        expert_games = (sample_expert_games(X, args.sample // 2, args.sample_seed)
+                        + sample_expert_games(O, args.sample // 2, args.sample_seed + 1))
+    else:
+        print("Enumerating every possible game ...")
+        all_games = enumerate_all_games()
+        print("Enumerating expert games (solver plays X, then O) ...")
+        expert_games = enumerate_expert_games(X) + enumerate_expert_games(O)
     if args.dedup_mirror:
         print("Deduplicating mirror pairs (A <-> C reflection) ...")
         all_games = dedup_mirror_games(all_games)
@@ -228,6 +244,7 @@ def main() -> None:
         "positions_solved": negamax.cache_info().currsize,
         "max_sequence_tokens": MAX_GAME_TOKENS,
         "mirror_deduped": args.dedup_mirror,
+        "sampled_rollouts": args.sample or 0,
     }
     (out / "meta.json").write_text(json.dumps(meta, indent=2) + "\n")
 
