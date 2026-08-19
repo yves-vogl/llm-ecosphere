@@ -15,3 +15,4 @@ omit =
     minillm/arena.py
     minillm/rl.py
     minillm/plot_loss.py
+    minillm/baseline_lookup.py
