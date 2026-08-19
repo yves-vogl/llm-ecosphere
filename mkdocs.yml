@@ -91,6 +91,7 @@ nav:
       - "Lab report: the RL gambler (REINFORCE self-play)": rl-gambler.md
       - "Lab report: the temperature sweep (exercise 4)": temperature-sweep.md
       - "Lab report: the mirror dedup (exercise 2)": mirror-dedup.md
+      - "Lab report: the ablations (exercise 3)": ablations.md
   - Deep dives:
       - "Anatomy of a tiny GPT: every part, and how to change it": anatomy.md
       - "The mathematics: tensors, matrices, formulas": deep-dive-math.md

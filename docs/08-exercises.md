@@ -119,6 +119,8 @@ with `python -m minillm.evaluate --ckpt runs/exp-.../model.pt`:
 
 **Files.** None for (1) and (2) — flags exist in `minillm/train.py`.
 `minillm/model.py` for (3).
+(A worked run of all three, with predictions on the record, is in
+[the ablations lab](ablations.md) — measure your own first.)
 
 **Hint for (3), think before you train.** Without `wpe`, attention sees a
 bag of tokens (the causal mask still leaks *some* order). Now note which
