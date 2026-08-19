@@ -181,6 +181,7 @@ codebase, with "In a real LLM" asides connecting it to production scale:
 17. [Lab report: the KV cache](docs/kv-cache.md) — exercise 5: opt-in O(T) generation, token-for-token identical to the naive loop
 18. [Lab report: the loss curves](docs/loss-curves.md) — exercise 6: the overfitting drama a single "best val loss" number hides, plotted
 19. [Lab report: the lookup-table baseline](docs/lookup-baseline.md) — exercise 7: would a hash map have done just as well? (on strength: almost — and where it provably cannot)
+20. [Lab report: the attention-head taxonomy](docs/attention-taxonomy.md) — exercise 8: all 16 heads catalogued; the docstring's three species exist, organized by layer
 
 Use it: [get a model and play it](docs/use-a-model.md) ·
 [the models in detail](docs/the-models.md) ·
