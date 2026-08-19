@@ -110,26 +110,16 @@ def prefix_coverage(table: LookupModel, tokenizer: Tokenizer, val_games: list[di
     return {"positions": total, "seen": seen, "coverage": seen / total}
 
 
-def agreement_by_coverage(model, table: LookupModel, tokenizer: Tokenizer,
-                          device, n_rollouts: int, seed: int) -> dict:
-    """Optimal-move rate for the network and the table, split by whether
-    the table has seen the position's history — the same seeded rollout
-    scheme evaluate.eval_expert_agreement uses, so the position set is
-    identical to the regular eval."""
-    rng = random.Random(seed)
-    histories: dict[tuple, list[str]] = {}
-    for _ in range(n_rollouts):
-        game = Game()
-        while not game.is_over():
-            histories.setdefault(tuple(game.stacks), list(game.history))
-            game.push(rng.choice(game.legal_moves()))
-
+def _split_agreement(histories: list[list[str]], model, table: LookupModel,
+                     tokenizer: Tokenizer, device) -> dict:
+    """Optimal-move rates for network and table over `histories`, split
+    by whether the table has seen each history's prefix."""
     buckets = {True: {"n": 0, "net": 0, "table": 0},
                False: {"n": 0, "net": 0, "table": 0}}
-    for stacks, history in histories.items():
+    for history in histories:
         covered = table.seen(tuple(tokenizer.encode_prompt(history)))
-        _, optimal = best_moves(stacks)
         game = Game.from_moves(history)
+        _, optimal = best_moves(tuple(game.stacks))
         bucket = buckets[covered]
         bucket["n"] += 1
         bucket["net"] += model_move_strict(model, tokenizer, game, device) in optimal
@@ -142,6 +132,37 @@ def agreement_by_coverage(model, table: LookupModel, tokenizer: Tokenizer,
         }
         for covered, b in buckets.items()
     }
+
+
+def agreement_by_coverage(model, table: LookupModel, tokenizer: Tokenizer,
+                          device, n_rollouts: int, seed: int) -> dict:
+    """Split optimal-move rates over the same seeded rollout positions
+    evaluate.eval_expert_agreement visits — identical position set to
+    the regular eval, but random rollouts mostly revisit common
+    prefixes, so the unseen bucket stays small."""
+    rng = random.Random(seed)
+    histories: dict[tuple, list[str]] = {}
+    for _ in range(n_rollouts):
+        game = Game()
+        while not game.is_over():
+            histories.setdefault(tuple(game.stacks), list(game.history))
+            game.push(rng.choice(game.legal_moves()))
+    return _split_agreement(list(histories.values()), model, table, tokenizer, device)
+
+
+def val_agreement_by_coverage(model, table: LookupModel, tokenizer: Tokenizer,
+                              val_games: list[dict], device) -> dict:
+    """The decisive split: positions walked along HELD-OUT games (one
+    entry per distinct position), where the unseen bucket is large
+    enough to mean something — these are exactly the prefixes on which
+    the table is reduced to uniform guessing while the network is not."""
+    histories: dict[tuple, list[str]] = {}
+    for g in val_games:
+        game = Game()
+        for move in g["moves"]:
+            histories.setdefault(tuple(game.stacks), list(game.history))
+            game.push(move)
+    return _split_agreement(list(histories.values()), model, table, tokenizer, device)
 
 
 # ----------------------------------------------------------------------
@@ -179,6 +200,8 @@ def main() -> None:
         "prefix_coverage": prefix_coverage(table, tokenizer, val_games),
         "agreement_by_coverage": agreement_by_coverage(
             model, table, tokenizer, device, args.agreement_rollouts, args.seed),
+        "val_agreement_by_coverage": val_agreement_by_coverage(
+            model, table, tokenizer, val_games, device),
     }
 
     tf = results["legality_teacher_forced"]
@@ -192,12 +215,14 @@ def main() -> None:
           f"({ag['positions']} positions)")
     print(f"coverage   held-out prefixes seen {cov['coverage']:7.1%}   "
           f"({cov['seen']}/{cov['positions']})")
-    for split in ("seen", "unseen"):
-        b = by[split]
-        if b["positions"]:
-            print(f"{split:>10} positions {b['positions']:4d}   "
-                  f"network optimal {b['network_optimal_rate']:6.1%}   "
-                  f"table optimal {b['table_optimal_rate']:6.1%}")
+    for label, split_results in (("rollout", by),
+                                 ("held-out", results["val_agreement_by_coverage"])):
+        for split in ("seen", "unseen"):
+            b = split_results[split]
+            if b["positions"]:
+                print(f"{label:>9} {split:>6} positions {b['positions']:4d}   "
+                      f"network optimal {b['network_optimal_rate']:6.1%}   "
+                      f"table optimal {b['table_optimal_rate']:6.1%}")
 
     if args.out:
         out = Path(args.out)
