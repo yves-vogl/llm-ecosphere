@@ -37,6 +37,8 @@ updates:
   # release or a security advisory lands.
   - package-ecosystem: pip
     directory: /
+    allow:
+      - dependency-type: direct
     schedule:
       interval: weekly
       day: monday
@@ -62,6 +64,8 @@ updates:
   # update the lockfiles.
   - package-ecosystem: pip
     directory: /requirements
+    allow:
+      - dependency-type: direct
     schedule:
       interval: weekly
       day: monday
