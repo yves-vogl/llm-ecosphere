@@ -29,7 +29,7 @@ from pathlib import Path
 
 import torch
 
-from .game import O, RESULT_DRAW, RESULT_O, RESULT_X, X
+from .game import COLS, O, RESULT_DRAW, RESULT_O, RESULT_X, X
 from .solver import EMPTY, describe_root_value, enumerate_all_games, enumerate_expert_games, negamax
 from .tokenizer import MAX_GAME_TOKENS, Tokenizer
 
@@ -135,6 +135,42 @@ def to_gambler_games(games: list[dict]) -> list[dict]:
 
 
 # ----------------------------------------------------------------------
+# Mirror symmetry (exercise 2 in docs/08-exercises.md)
+# ----------------------------------------------------------------------
+# Reflection across the board's vertical axis: A <-> C, B -> B. Rows are
+# untouched — gravity acts per column, so a reflected game is exactly as
+# legal as the original, move for move.
+MIRROR_COLS = dict(zip(COLS, reversed(COLS)))
+
+
+def mirror_move(move: str) -> str:
+    """The mirror image of one move: "A2" -> "C2", "B1" -> "B1"."""
+    return MIRROR_COLS[move[0]] + move[1]
+
+
+def mirror_game(game: dict) -> dict:
+    """The mirror image of a game dict. Only the moves change: reflection
+    swaps columns, not players, so the result (and, if present, the
+    "expert" / "winner" tags) carries over unchanged. The input is never
+    mutated — the output is a shallow copy, like to_gambler_games."""
+    return {**game, "moves": [mirror_move(m) for m in game["moves"]]}
+
+
+def dedup_mirror_games(games: list[dict]) -> list[dict]:
+    """Keep exactly one game per mirror pair (exercise 2's filter).
+
+    Of each pair (game, mirror(game)) only the lexicographically smaller
+    move sequence survives. Because the corpora are mirror-closed (the
+    enumerators emit every game, and the mirror of an optimal move is
+    optimal), every discarded game's partner is guaranteed to be kept —
+    the output is exactly half the input, minus nothing. A game equal to
+    its own mirror would be kept once; in this corpus that never happens
+    (it would need every move in column B, which holds only 3 pieces),
+    but the `<=` handles it correctly anyway. Order is preserved."""
+    return [g for g in games if g["moves"] <= mirror_game(g)["moves"]]
+
+
+# ----------------------------------------------------------------------
 # JSONL I/O
 # ----------------------------------------------------------------------
 def write_jsonl(path: Path, rows: list[dict]) -> None:
@@ -158,6 +194,11 @@ def read_jsonl(path: str | Path) -> list[dict]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Enumerate games and write datasets")
     parser.add_argument("--out", default="data", help="output directory")
+    parser.add_argument("--dedup-mirror", action="store_true",
+                        help="keep only one game per mirror pair (exercise 2): "
+                             "of (game, mirror(game)) the lexicographically "
+                             "smaller move sequence survives — half the corpus, "
+                             "written to --out for a separate training run")
     args = parser.parse_args()
 
     out = Path(args.out)
@@ -167,6 +208,10 @@ def main() -> None:
     all_games = enumerate_all_games()
     print("Enumerating expert games (solver plays X, then O) ...")
     expert_games = enumerate_expert_games(X) + enumerate_expert_games(O)
+    if args.dedup_mirror:
+        print("Deduplicating mirror pairs (A <-> C reflection) ...")
+        all_games = dedup_mirror_games(all_games)
+        expert_games = dedup_mirror_games(expert_games)
 
     write_jsonl(out / "all_games.jsonl", all_games)
     write_jsonl(out / "expert_games.jsonl", expert_games)
@@ -182,6 +227,7 @@ def main() -> None:
         "root_value": describe_root_value(),
         "positions_solved": negamax.cache_info().currsize,
         "max_sequence_tokens": MAX_GAME_TOKENS,
+        "mirror_deduped": args.dedup_mirror,
     }
     (out / "meta.json").write_text(json.dumps(meta, indent=2) + "\n")
 

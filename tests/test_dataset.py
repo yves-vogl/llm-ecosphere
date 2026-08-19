@@ -175,3 +175,83 @@ def test_expert_masking_regression_guard_after_gambler_addition():
     _, y = build_tensors([game_x], tok, BLOCK, expert_only=True)
     assert (y[0, torch.tensor([0, 2, 4])] != -1).all()  # X's moves trained
     assert (y[0, torch.tensor([1, 3])] == -1).all()  # O's moves masked
+
+
+# ----------------------------------------------------------------------
+# Mirror symmetry (exercise 2): reflection, and the dedup filter
+# ----------------------------------------------------------------------
+def test_mirror_move_swaps_outer_columns_and_keeps_rows():
+    from minillm.dataset import mirror_move
+
+    assert mirror_move("A1") == "C1"
+    assert mirror_move("C3") == "A3"
+    assert mirror_move("B2") == "B2"
+    # An involution: mirroring twice is the identity.
+    from minillm.tokenizer import MOVE_TOKENS
+    for move in MOVE_TOKENS:
+        assert mirror_move(mirror_move(move)) == move
+
+
+def test_mirror_game_keeps_result_and_tags_and_does_not_mutate():
+    from minillm.dataset import mirror_game
+
+    game = {"moves": ["A1", "B1", "A2"], "result": "#X", "expert": "X"}
+    mirrored = mirror_game(game)
+    assert mirrored["moves"] == ["C1", "B1", "C2"]
+    # Reflection swaps columns, not players: result and tags carry over.
+    assert mirrored["result"] == "#X"
+    assert mirrored["expert"] == "X"
+    assert game["moves"] == ["A1", "B1", "A2"]  # input untouched
+
+
+def test_mirror_game_is_replayable_and_preserves_the_result():
+    """A mirrored transcript must be exactly as legal as the original and
+    end with the same result token — gravity acts per column, and lines
+    reflect onto lines."""
+    from minillm.dataset import mirror_game
+    from minillm.game import Game
+    from minillm.solver import enumerate_all_games
+
+    for game in enumerate_all_games()[::97]:  # a deterministic sample
+        mirrored = mirror_game(game)
+        replayed = Game.from_moves(mirrored["moves"])  # raises if illegal
+        assert replayed.result_token == game["result"]
+
+
+def test_dedup_mirror_halves_the_full_corpus():
+    from minillm.dataset import dedup_mirror_games, mirror_game
+    from minillm.solver import enumerate_all_games
+
+    games = enumerate_all_games()
+    deduped = dedup_mirror_games(games)
+    # No complete game is self-symmetric (that would need every move in
+    # column B), so the dedup keeps exactly half: 1,310 -> 655.
+    assert len(games) == 1310
+    assert len(deduped) == 655
+    # Exactly one representative per pair, and nothing invented: the kept
+    # games plus their mirrors reconstruct the full corpus.
+    kept = {tuple(g["moves"]) for g in deduped}
+    assert all(tuple(mirror_game(g)["moves"]) not in kept for g in deduped)
+    restored = kept | {tuple(mirror_game(g)["moves"]) for g in deduped}
+    assert restored == {tuple(g["moves"]) for g in games}
+
+
+def test_dedup_mirror_keeps_a_self_symmetric_game_once():
+    from minillm.dataset import dedup_mirror_games
+
+    # Synthetic, not reachable in the real corpus — the correctness case
+    # the docstring promises: game == mirror(game) is kept, not dropped.
+    self_symmetric = {"moves": ["B1", "B2"], "result": "#="}
+    assert dedup_mirror_games([self_symmetric]) == [self_symmetric]
+
+
+def test_dedup_mirror_halves_the_expert_corpus():
+    """The expert corpus is mirror-closed too: the mirror of an optimal
+    move is optimal, and enumerate_expert_games branches over all ties."""
+    from minillm.dataset import dedup_mirror_games
+    from minillm.game import O, X
+    from minillm.solver import enumerate_expert_games
+
+    expert_games = enumerate_expert_games(X) + enumerate_expert_games(O)
+    deduped = dedup_mirror_games(expert_games)
+    assert len(deduped) * 2 == len(expert_games)

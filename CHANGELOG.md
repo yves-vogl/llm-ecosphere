@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A `--dedup-mirror` flag on `minillm.dataset` (exercise 2): keeps only the
+  lexicographically smaller game of each A↔C mirror pair — 1,310 → 655
+  games (334 → 167 expert games) — so the symmetry-generalization
+  experiment can pretrain on a corpus with the mirror redundancy removed.
+  The filter (`dedup_mirror_games`, with `mirror_move` / `mirror_game`)
+  lives in `minillm/dataset.py`. Lab report in `docs/mirror-dedup.md`.
+
 ## [0.2.0] — 2026-07-14
 
 Lab experiments, round one: a reinforcement-learning stage, a temperature
