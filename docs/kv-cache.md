@@ -89,7 +89,7 @@ repo does, with room to spare (12 ≤ 16 move-level, 22 ≤ 24 char-level).
 
 On the shipped finetuned checkpoint, 100 greedy games and 300 sampled
 games (temperature 1.0, same seeded generator) were generated through
-both paths: XXAGREE.
+both paths: all 400 transcripts came out token-for-token identical (300/300 sampled through one shared seeded generator, 100/100 greedy).
 
 ## Speed, measured honestly
 
@@ -98,11 +98,11 @@ tokens — this is the regime the docs *warn* is too small to care about):
 
 | decode path | 300 sampled games | 100 greedy games |
 |---|---:|---:|
-| naive (`use_cache=False`) | XXNAIVE | XXNAIVEG |
-| KV cache (`use_cache=True`) | XXCACHED | XXCACHEDG |
-| speedup | XXSPEED | XXSPEEDG |
+| naive (`use_cache=False`) | 22.47 s | 5.71 s |
+| KV cache (`use_cache=True`) | 9.78 s | 3.05 s |
+| speedup | x2.30 | x1.88 |
 
-XXSPEEDNOTE
+A real, boring 2x - measured on one core of an ordinary laptop, and exactly as bounded as the theory says: with prefixes capped at 12 tokens the cache can only save re-running at most a dozen positions through four blocks per step. The exercise's point was never the milliseconds; it is that the same mechanism, at 100k-token contexts, is the difference between a servable system and quadratic ruin.
 
 > **In a real LLM:** the KV cache is not an optimization, it is *the*
 > serving-cost driver. At 100k-token contexts the cached keys and values
