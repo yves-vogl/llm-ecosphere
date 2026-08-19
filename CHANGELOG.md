@@ -38,6 +38,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   readable path is untouched and remains the one training and every
   pipeline stage use. Greedy output is token-for-token identical with and
   without the cache (pinned by tests). Lab report in `docs/kv-cache.md`.
+- **`minillm.plot_loss`** (exercise 6): renders each run's `log.csv` as a
+  deterministic SVG (fixed hash salt, no embedded date) marking the
+  best-validation checkpoint that actually shipped. matplotlib stays out
+  of `requirements.txt` on purpose; the script asks for it politely. The
+  reference curves are committed under `docs/img/` and read in the new
+  lab report `docs/loss-curves.md` — pretraining's boring glued-together
+  curves versus finetuning's textbook overfit (val 0.4771 at step 100
+  climbing to 0.659 while train falls to 0.340), survived by
+  `train.py`'s best-on-validation checkpointing.
 
 ## [0.2.0] — 2026-07-14
 

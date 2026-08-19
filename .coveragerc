@@ -14,3 +14,4 @@ omit =
     minillm/inspect_attention.py
     minillm/arena.py
     minillm/rl.py
+    minillm/plot_loss.py
