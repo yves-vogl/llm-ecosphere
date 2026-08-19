@@ -22,6 +22,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   been memorizing both halves, not internalizing the symmetry, and in a
   closed world the mirror "duplicates" turn out to be the training
   signal for the invariance itself.
+- **Ablations lab report** (`docs/ablations.md`, exercise 3): the three
+  prescribed cuts — 1 layer, 1 head, no position embeddings — trained
+  and measured against the reference pretrain checkpoint, with the
+  predictions recorded before training. Depth and head count turn out
+  not to be load-bearing at this board size; removing position
+  embeddings is the only cut that draws blood, and it splits the metrics
+  exactly along the order symmetry: legality (order-invariant under
+  gravity) survives at 98.6%, refereeing collapses to 73.3% and the
+  model starts losing to a random opponent.
 
 ## [0.2.0] — 2026-07-14
 
