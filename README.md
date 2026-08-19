@@ -61,10 +61,10 @@ Everything runs on plain CPU.
 
 ```bash
 make setup      # create .venv and install torch + pytest
-make test       # 86 unit tests
+make test       # run the unit test suite
 make data       # enumerate every game        (seconds)
-make pretrain   # learn the rules             (~2 min CPU)
-make finetune   # learn to play well          (~1 min CPU)
+make pretrain   # learn the rules             (minutes on CPU)
+make finetune   # learn to play well          (~2 min CPU)
 make eval       # measure what it learned     (seconds)
 make play       # play against it!
 ```
@@ -147,7 +147,7 @@ minillm/
   play.py        interactive play
   inspect_attention.py  print attention heads
   utils.py       device, seeding, checkpoint loading
-tests/           76 tests: rules, solver, tokenizers, masking, causality, arena
+tests/           the test suite: rules, solver, tokenizers, masking, causality, arena
 docs/            the guided tour (start at docs/00-overview.md)
 data/, runs/     generated artifacts (gitignored, reproducible)
 .github/         CI, SAST, secret scan, commit lint, Pages deploy, Dependabot

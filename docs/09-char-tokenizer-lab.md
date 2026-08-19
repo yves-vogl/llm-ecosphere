@@ -229,7 +229,7 @@ per checkpoint, aggregated as mean and [min-max] across the three seeds.
 ## Reproduce it
 
 ```bash
-make test                                     # 56 tests, both tokenizers
+make test                                     # the full suite, both tokenizers
 .venv/bin/python -m minillm.sample --ckpt runs/exp-char-pretrain/model.pt --num 5
 ```
 
