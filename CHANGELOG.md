@@ -47,6 +47,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   curves versus finetuning's textbook overfit (val 0.4771 at step 100
   climbing to 0.659 while train falls to 0.340), survived by
   `train.py`'s best-on-validation checkpointing.
+- **`minillm.baseline_lookup`** (exercise 7): a no-learning lookup-table
+  baseline over training-split transcript prefixes that wears GPT's
+  inference interface, so the regular eval stack runs on it unchanged;
+  unseen prefixes fall back to uniform over the engine's legal moves.
+  Adds prefix-coverage measurement plus network-vs-table optimal-move
+  splits by coverage. Lab report in `docs/lookup-baseline.md`: the table
+  ties pretraining on strength (72.0% vs 70.3% optimal moves, 90.2%
+  held-out prefix coverage), finetuning pulls away on covered positions
+  (79.8% vs 63.6%), and refereeing is the true generalization test — the
+  table collapses to 45.0% result prediction (uniform-fallback base
+  rate) where the networks score 99–100%.
 
 ## [0.2.0] — 2026-07-14
 

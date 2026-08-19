@@ -236,7 +236,9 @@ exactly the prefixes the table has *never seen* — is a measured quantity of
 generalization.
 
 **Files.** New script (suggested: `minillm/baseline_lookup.py`); read-only
-everywhere else.
+everywhere else. (A worked baseline now ships under exactly that name —
+build your own first, then compare against the measured
+[lookup-baseline lab](lookup-baseline.md).)
 
 **Hint.** Key the table on `tuple(moves_so_far)` with a
 `collections.Counter` as value. Report the never-seen-prefix rate separately

@@ -94,6 +94,7 @@ nav:
       - "Lab report: the ablations (exercise 3)": ablations.md
       - "Lab report: the KV cache (exercise 5)": kv-cache.md
       - "Lab report: the loss curves (exercise 6)": loss-curves.md
+      - "Lab report: the lookup-table baseline (exercise 7)": lookup-baseline.md
   - Deep dives:
       - "Anatomy of a tiny GPT: every part, and how to change it": anatomy.md
       - "The mathematics: tensors, matrices, formulas": deep-dive-math.md
