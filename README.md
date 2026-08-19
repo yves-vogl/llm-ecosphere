@@ -179,6 +179,7 @@ codebase, with "In a real LLM" asides connecting it to production scale:
 15. [Lab report: the mirror dedup](docs/mirror-dedup.md) — exercise 2: pretrain on half the corpus, deduplicated across the A↔C symmetry
 16. [Lab report: the ablations](docs/ablations.md) — exercise 3: depth and head count are not load-bearing; position embeddings are, exactly where order matters
 17. [Lab report: the KV cache](docs/kv-cache.md) — exercise 5: opt-in O(T) generation, token-for-token identical to the naive loop
+18. [Lab report: the loss curves](docs/loss-curves.md) — exercise 6: the overfitting drama a single "best val loss" number hides, plotted
 
 Use it: [get a model and play it](docs/use-a-model.md) ·
 [the models in detail](docs/the-models.md) ·

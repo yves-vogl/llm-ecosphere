@@ -207,6 +207,9 @@ checkpoint still good? Find the exact line in `minillm/train.py` that saved
 the day (look for `if val_loss < best_val`).
 
 **Files.** New plotting script anywhere you like; read-only on `runs/`.
+(A worked script now ships as `minillm/plot_loss.py` — plot your own
+first, then compare against the rendered curves and analysis in
+[the loss-curves lab](loss-curves.md).)
 
 **Hint.** The gap has a size explanation: finetuning sees 334 expert games
 minus the val split, and the loss mask in `build_tensors` throws away the
