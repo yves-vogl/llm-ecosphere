@@ -81,3 +81,46 @@ def test_expert_games_opponent_branches_everything():
         replies = {g["moves"][1] for g in games if g["moves"][0] == opening}
         game = Game.from_moves([opening])
         assert replies == set(game.legal_moves())
+
+
+# ----------------------------------------------------------------------
+# Sampled corpora (exercise 9): the generators for non-enumerable worlds
+# ----------------------------------------------------------------------
+def test_sample_random_games_is_deterministic_and_deduplicated():
+    from minillm.solver import sample_random_games
+
+    a = sample_random_games(200, seed=7)
+    b = sample_random_games(200, seed=7)
+    assert a == b
+    keys = [tuple(g["moves"]) for g in a]
+    assert len(keys) == len(set(keys))
+    assert sample_random_games(200, seed=8) != a
+
+
+def test_sample_random_games_are_legal_complete_games():
+    from minillm.game import Game
+    from minillm.solver import enumerate_all_games, sample_random_games
+
+    universe = {tuple(g["moves"]): g["result"] for g in enumerate_all_games()}
+    for g in sample_random_games(200, seed=0):
+        replayed = Game.from_moves(g["moves"])   # raises if any move is illegal
+        assert replayed.is_over()
+        assert replayed.result_token == g["result"]
+        # At 3x3 the sample must be a strict subset of the enumeration.
+        assert universe[tuple(g["moves"])] == g["result"]
+
+
+def test_sample_expert_games_expert_moves_are_solver_optimal():
+    from minillm.solver import EMPTY, apply_move, best_moves, sample_expert_games, to_move
+    from minillm.game import COLS
+
+    for expert in ("X", "O"):
+        games = sample_expert_games(expert, 50, seed=3)
+        assert games and all(g["expert"] == expert for g in games)
+        for g in games[:10]:
+            stacks = EMPTY
+            for move in g["moves"]:
+                if to_move(stacks) == expert:
+                    _, optimal = best_moves(stacks)
+                    assert move in optimal
+                stacks = apply_move(stacks, COLS.index(move[0]))

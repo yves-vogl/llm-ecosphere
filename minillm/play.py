@@ -26,7 +26,7 @@ import argparse
 import torch
 import torch.nn.functional as F
 
-from .game import COLS, Game, IllegalMoveError, other
+from .game import COLS, Game, IllegalMoveError, N, other
 from .tokenizer import Tokenizer
 from .utils import (default_checkpoint, greedy_unit, legal_move_logprobs,
                     load_model, next_token_logits, pick_device, sample_unit,
@@ -122,7 +122,7 @@ def read_human_move(game: Game) -> str | None:
             return raw  # handled by the caller
         if len(raw) == 1 and raw in COLS:
             height = len(game.stacks[COLS.index(raw)])
-            if height >= 3:
+            if height >= N:
                 print(f"  column {raw} is full")
                 continue
             raw = f"{raw}{height + 1}"

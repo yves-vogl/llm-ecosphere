@@ -20,12 +20,13 @@ just hashable so `functools.lru_cache` can memoize on it.
 
 from __future__ import annotations
 
+import random
 from functools import lru_cache
 
 from .game import COLS, LINES, N, O, RESULT_DRAW, RESULT_O, RESULT_X, X
 
-State = tuple[str, str, str]
-EMPTY: State = ("", "", "")
+State = tuple[str, ...]  # one stack string per column, N of them
+EMPTY: State = ("",) * N
 
 
 # ----------------------------------------------------------------------
@@ -150,6 +151,61 @@ def enumerate_all_games() -> list[dict]:
             moves.pop()
 
     dfs(EMPTY, [])
+    return games
+
+
+def sample_random_games(n_games: int, seed: int = 0) -> list[dict]:
+    """Complete games from uniformly random legal play — the corpus
+    generator for worlds too big to enumerate (exercise 9's 4x4 board).
+
+    Rolls out `n_games` games and deduplicates, so the result is a
+    deterministic (per `seed`) SAMPLE of the game space: at the shipped
+    3x3 it is a strict subset of enumerate_all_games(); at 4x4, where
+    full enumeration explodes combinatorially, it is the replacement.
+    Same row shape as the enumerator: {"moves": [...], "result": "#X"}.
+    """
+    rng = random.Random(seed)
+    seen: set[tuple[str, ...]] = set()
+    games: list[dict] = []
+    for _ in range(n_games):
+        stacks, moves = EMPTY, []
+        while winner(stacks) is None and not is_full(stacks):
+            col = rng.choice(legal_columns(stacks))
+            moves.append(notation(stacks, col))
+            stacks = apply_move(stacks, col)
+        key = tuple(moves)
+        if key not in seen:
+            seen.add(key)
+            games.append({"moves": moves, "result": result_token(stacks)})
+    return games
+
+
+def sample_expert_games(expert: str, n_games: int, seed: int = 0) -> list[dict]:
+    """Sampled counterpart of enumerate_expert_games, same row shape
+    (including the "expert" tag build_tensors masks on): the expert
+    plays a uniformly random SOLVER-OPTIMAL move, the opponent a
+    uniformly random legal one. Deduplicated and deterministic per
+    `seed`. The expert side still needs the exact solver — sampling
+    replaces the corpus enumeration, never the ground truth."""
+    assert expert in (X, O)
+    rng = random.Random(seed)
+    seen: set[tuple[str, ...]] = set()
+    games: list[dict] = []
+    for _ in range(n_games):
+        stacks, moves = EMPTY, []
+        while winner(stacks) is None and not is_full(stacks):
+            if to_move(stacks) == expert:
+                _, options = best_moves(stacks)
+                move = rng.choice(options)
+            else:
+                move = notation(stacks, rng.choice(legal_columns(stacks)))
+            moves.append(move)
+            stacks = apply_move(stacks, COLS.index(move[0]))
+        key = tuple(moves)
+        if key not in seen:
+            seen.add(key)
+            games.append({"moves": moves, "result": result_token(stacks),
+                          "expert": expert})
     return games
 
 

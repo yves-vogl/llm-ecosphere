@@ -288,39 +288,42 @@ that you understand how the pieces connect.
 
 **What must change, in dependency order.**
 
-- `minillm/game.py`: `COLS = "ABCD"`, `N = 4`, and — the real work — `LINES`.
-  It is derived from `N`, but only generates *full-length* lines (at `N = 4`:
-  4 verticals + 4 horizontals + 2 diagonals); with win-length 3 on a 4×4
-  board you need every 3-cell segment: horizontal, vertical, and both
-  diagonal directions. Also unhardcode `"123"` in `push()`, the
-  `Game.stacks` default_factory (three empty strings), the `render()` footer
-  (`"   +------"` / `"     A B C"`), and the `height >= 3` check in
-  `play.py`'s `read_human_move`.
+- `minillm/game.py`: `COLS = "ABCD"`, `N = 4`. The real conceptual work
+  is `LINES`: with win-length 3 on a 4×4 board you need every 3-cell
+  segment — horizontal, vertical, and both diagonal directions — not
+  just full-length lines. (The derivation now ships as
+  `_win_segments(n, win)` with `WIN = 3`, provably identical to the
+  classic 8 lines at 3×3; work through why full-length lines would be
+  wrong at 4×4 before trusting it. The stacks default, row validation,
+  `render()` footer and `play.py`'s column-full check derive from
+  `N`/`COLS` as well.)
 - `minillm/tokenizer.py`: `MOVE_TOKENS` grows to 16 automatically (it is
   computed from `COLS` and `N`), vocab 15 → 22, `MAX_GAME_TOKENS` 12 → 19.
-- `minillm/config.py`: `block_size` 16 → at least 19 (round up to 20 or 24).
-- `minillm/solver.py`: one small edit — `EMPTY` hardcodes three column
-  stacks (`("", "", "")`) and the `State` alias is `tuple[str, str, str]`;
-  make it a 4-tuple, ideally derived from `N`
-  (`tuple("" for _ in range(N))`). The algorithms are otherwise unchanged —
-  but check
-  `negamax.cache_info().currsize` (694 positions today) after a solve; it
-  will grow a lot and still fit in memory.
+- `minillm/config.py`: `block_size` 16 → at least 19 (round up to 20 or 24;
+  a `--block-size` flag exists on `minillm.train`).
+- `minillm/solver.py`: `State`/`EMPTY` are already `N`-tuples. The
+  algorithms are unchanged — but check `negamax.cache_info().currsize`
+  (694 positions today) after a solve; it grows a lot and still fits in
+  memory.
 
 **The trap, and the actual lesson.** `enumerate_all_games` is a full DFS over
 the game tree — fine at 1,310 games, but at branching factor ≤ 4 and depth
 ≤ 16 the 4×4 tree has potentially billions of leaves. Complete enumeration
 dies. You must replace "pretrain on *everything*" with "pretrain on a
-*sample*" (random rollouts are the simplest corpus generator), which changes
+*sample*" (random rollouts are the simplest corpus generator; worked
+versions ship as `solver.sample_random_games` / `sample_expert_games`
+behind `minillm.dataset --sample N`), which changes
 the epistemics of the whole project: held-out games may now contain genuinely
 unseen positions, so your eval numbers finally mean what real-LLM eval
 numbers mean.
 
 **Hint.** Do it in two commits: first make `make test` pass with the new
-constants (the tests in `tests/` will point at every hardcoded 3), then
-replace the enumerator. Ask the solver for the new root value —
+constants (the tests in `tests/` will point at every remaining hardcoded 3),
+then switch the corpus to `--sample`. Ask the solver for the new root value —
 `describe_root_value()` will tell you whether 4×4 Connect-3 is still a draw.
-Do not trust your intuition; that is what the solver is for.
+Do not trust your intuition; that is what the solver is for. A worked run
+with measured numbers is in [the 4×4 lab](4x4-connect3.md) — after your
+own attempt.
 
 ## 10. An RL stage: REINFORCE self-play after SFT — *a weekend*
 

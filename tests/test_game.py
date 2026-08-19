@@ -93,3 +93,39 @@ def test_render_shows_bottom_row_last():
     assert lines[0].startswith(" 3")
     assert "X" in lines[2]  # row 1 line contains the piece
     assert lines[-1].strip() == "A B C"
+
+
+# ----------------------------------------------------------------------
+# Win-segment derivation (exercise 9): LINES for any board and win length
+# ----------------------------------------------------------------------
+def test_win_segments_at_3x3_are_the_classic_eight_lines():
+    from minillm.game import LINES, N, _win_segments
+
+    classic = (
+        [[(c, r) for r in range(N)] for c in range(N)]        # verticals
+        + [[(c, r) for c in range(N)] for r in range(N)]      # horizontals
+        + [[(i, i) for i in range(N)], [(i, N - 1 - i) for i in range(N)]]
+    )
+    as_sets = lambda lines: {frozenset(line) for line in lines}
+    assert as_sets(LINES) == as_sets(classic)
+    assert len(LINES) == 8
+    assert _win_segments() == LINES
+
+
+def test_win_segments_4x4_connect3_covers_every_three_cell_window():
+    """The 4x4 world of exercise 9: win length 3 on a 4x4 board needs
+    every 3-cell segment, not just full-length lines."""
+    from minillm.game import _win_segments
+
+    segments = _win_segments(n=4, win=3)
+    # 2 horizontal windows per row x 4 rows, same vertically = 16, plus
+    # 4 windows per diagonal direction = 24 segments in total.
+    assert len(segments) == 24
+    as_sets = {frozenset(s) for s in segments}
+    assert frozenset([(0, 0), (1, 0), (2, 0)]) in as_sets   # horizontal window
+    assert frozenset([(1, 0), (2, 0), (3, 0)]) in as_sets   # shifted window
+    assert frozenset([(0, 1), (1, 2), (2, 3)]) in as_sets   # off-corner diagonal
+    assert frozenset([(3, 1), (2, 2), (1, 3)]) in as_sets   # anti-diagonal window
+    # Full-length lines alone would be 4 + 4 + 2 = 10 - the derivation
+    # must not collapse back to that.
+    assert all(len(s) == 3 for s in segments)
