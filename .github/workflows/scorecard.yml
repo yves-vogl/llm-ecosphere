@@ -23,6 +23,9 @@ jobs:
     # Pin to ubuntu-24.04 to match every other workflow in the repo.
     # Avoids silent drift when GitHub flips the `ubuntu-latest` floor.
     runs-on: ubuntu-24.04
+    # Observed runtime is well under a minute; 10 min gives headroom for
+    # upstream API slowness without letting a hang burn the Actions quota.
+    timeout-minutes: 10
     permissions:
       # Upload findings to the GitHub code-scanning UI.
       security-events: write
@@ -39,12 +42,32 @@ jobs:
       - name: Run OpenSSF Scorecard analysis
         uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
         with:
-          # Runs with the default GITHUB_TOKEN, which cannot read
-          # branch-protection state — the Branch-Protection check reports
-          # -1 (unreadable) until a fine-grained PAT with
-          # Administration:read on this repo is provisioned as the
-          # SCORECARD_READ_TOKEN secret and passed here as `repo_token`.
-          # Every other check works with the default token.
+          # Runs with the default GITHUB_TOKEN. Every check works with it
+          # except Branch-Protection: this repo still uses GitHub's
+          # *classic* branch-protection API, which the docs confirm is
+          # admin-only — GITHUB_TOKEN can't read it, so that one check
+          # errors internally and reports -1 (see
+          # https://github.com/ossf/scorecard-action/blob/main/docs/authentication/fine-grained-auth-token.md).
+          # This is a *narrowed*, not an eliminated, gap (see
+          # https://github.com/yves-vogl/llm-ecosphere/issues/5):
+          #   - Scorecard excludes -1 checks from the weighted aggregate
+          #     rather than zeroing them out, so this does not depress the
+          #     published score or fail the workflow.
+          #   - Migrating `main`'s branch protection from the classic API
+          #     to GitHub Repository Rulesets would let the default token
+          #     read it directly — no PAT needed — but that's a
+          #     repo-settings change with different semantics, tracked
+          #     separately rather than folded in here.
+          #   - If a real Branch-Protection score is wanted without that
+          #     migration, a fine-grained PAT scoped to
+          #     `Administration: Read-only` on this repo, stored as the
+          #     `SCORECARD_READ_TOKEN` secret and passed as `repo_token`
+          #     below, is the documented fix. Given this repo's current
+          #     protection config (0 required approving reviews,
+          #     enforce_admins off), that PAT would raise Branch-Protection
+          #     from "unscored" to a modest low/mid score, not a high one —
+          #     minting it is a judgement call for whoever owns repo
+          #     secrets, not a default action.
           results_file: results.sarif
           results_format: sarif
           # Publishes the score to api.securityscorecards.dev so the
