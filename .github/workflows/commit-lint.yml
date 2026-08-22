@@ -17,6 +17,10 @@ jobs:
   lint:
     name: Commit-message lint
     runs-on: ubuntu-24.04
+    # Observed runtime is a few seconds even walking the full PR commit
+    # range; 5 min gives headroom without letting a hang burn the
+    # default 6h cap.
+    timeout-minutes: 5
     # Explicit per-job least-privilege block (matches the workflow-level
     # scope) so the textual posture is unambiguous to auditors and to
     # OpenSSF Scorecard's Token-Permissions check.

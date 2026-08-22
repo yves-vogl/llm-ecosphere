@@ -27,6 +27,11 @@ jobs:
   zoo:
     name: Train and publish the model zoo
     runs-on: ubuntu-24.04
+    # Observed runtime across the (base/expert/gambler) x (move/char)
+    # matrix is 11-18.5 min on a GitHub-hosted CPU runner; 90 min gives a
+    # ~5x buffer for runner variance and future matrix growth without
+    # letting a hang burn the default 6h cap.
+    timeout-minutes: 90
     permissions:
       contents: write  # required to create/update the Release and upload assets
     steps:
