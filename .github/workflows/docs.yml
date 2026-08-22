@@ -30,6 +30,9 @@ jobs:
   build:
     name: Build mkdocs site
     runs-on: ubuntu-24.04
+    # Observed runtime is well under a minute; 10 min gives headroom as
+    # the docs tree grows without letting a hang burn the default 6h cap.
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
@@ -72,6 +75,10 @@ jobs:
     # PR runs still skip deploy (no artifact uploaded).
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
+    # Observed runtime is ~10s (a single actions/deploy-pages call); 5 min
+    # gives headroom for GitHub Pages API slowness without letting a hang
+    # burn the default 6h cap.
+    timeout-minutes: 5
     permissions:
       pages: write       # required for actions/deploy-pages
       id-token: write    # required for OIDC verification by deploy-pages

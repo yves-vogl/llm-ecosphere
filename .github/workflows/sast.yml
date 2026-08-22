@@ -22,6 +22,10 @@ jobs:
   semgrep:
     name: Semgrep SAST
     runs-on: ubuntu-24.04
+    # Observed runtime is well under a minute; 15 min gives headroom as
+    # the codebase and ruleset grow without letting a hang burn the
+    # default 6h cap.
+    timeout-minutes: 15
     permissions:
       security-events: write
       actions: read

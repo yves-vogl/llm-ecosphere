@@ -19,6 +19,10 @@ jobs:
   test:
     name: Tests + coverage
     runs-on: ubuntu-24.04
+    # Observed runtime is well under a minute; 20 min gives headroom for a
+    # slow CPU-wheel download from the PyTorch index without letting a
+    # hang burn the six-hour GitHub default.
+    timeout-minutes: 20
     permissions:
       contents: read
     outputs:
@@ -146,6 +150,9 @@ jobs:
     needs: test
     # Only push the badge when merging to main; skip on PRs and non-main pushes.
     if: success() && github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Observed runtime is a few seconds (SVG generation + a single push);
+    # 5 min gives headroom without letting a hang burn the default 6h cap.
+    timeout-minutes: 5
     permissions:
       contents: write  # required only for this job's push to coverage-badge branch
     steps:
@@ -223,6 +230,9 @@ jobs:
     # secret is required (free for personal use).
     name: gitleaks secret scan
     runs-on: ubuntu-24.04
+    # Observed runtime is ~10s even with fetch-depth: 0 (full history);
+    # 10 min gives headroom as history grows without burning the default 6h cap.
+    timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: write   # required so gitleaks can comment on the PR
