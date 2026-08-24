@@ -50,7 +50,7 @@ jobs:
           # PyPI wheel bundles CUDA libraries (~2 GB) that this repo never
           # uses — everything here runs on plain CPU, by design (see
           # docs/10-gpu-cuda.md). The CPU index is not hash-pinnable the way
-          # requirements/{docs,sast}.lock.txt are, so the version range from
+          # requirements/{docs,sast}.txt are, so the version range from
           # requirements.txt is the pin.
           pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.4"
           pip install "numpy>=1.26" "pytest>=8.0" "pytest-cov>=6.0"

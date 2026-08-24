@@ -50,11 +50,11 @@ jobs:
       - name: Install mkdocs + plugins (hash-pinned)
         run: |
           # Hash-pinned install against the generated lockfile.
-          # requirements/docs.in declares the top-level pins; .lock.txt
+          # requirements/docs.in declares the top-level pins; docs.txt
           # adds transitive deps with --hash=sha256:... per wheel so the
           # resolver cannot fetch an unexpected artifact even if a name
           # collision were attempted on PyPI.
-          pip install --require-hashes --no-deps -r requirements/docs.lock.txt
+          pip install --require-hashes --no-deps -r requirements/docs.txt
 
       - name: Build site (strict mode)
         run: mkdocs build --strict

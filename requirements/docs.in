@@ -1,4 +1,4 @@
 # Top-level pins for the MkDocs documentation toolchain (docs.yml workflow).
 # The hash-pinned lockfile is generated from this file:
-#   uv pip compile --generate-hashes -o requirements/docs.lock.txt requirements/docs.in
-mkdocs-material==9.7.6
+#   uv pip compile --generate-hashes --python-version 3.12 -o requirements/docs.txt requirements/docs.in
+mkdocs-material==9.7.7

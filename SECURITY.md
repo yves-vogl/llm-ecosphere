@@ -21,7 +21,7 @@ llm-ecosphere is a local, offline lab:
   reproducible from the code.
 - **Dependencies**: `torch`, `numpy`, `pytest` (see `requirements.txt`).
   The CI toolchain (MkDocs, Semgrep) is hash-pinned in
-  `requirements/*.lock.txt`.
+  `requirements/{docs,sast}.txt`.
 
 ## Supply-chain controls
 
