@@ -44,11 +44,12 @@ jobs:
 
       - name: Install Semgrep (hash-pinned)
         # Hash-pinned install against the generated lockfile.
-        # requirements/sast.in declares the top-level pin; .lock.txt adds
+        # requirements/sast.in declares the top-level pin; sast.txt adds
         # transitive deps with --hash=sha256:... per wheel. Bump Semgrep
         # via Dependabot PR or regenerate manually:
-        #   uv pip compile --generate-hashes -o requirements/sast.lock.txt requirements/sast.in
-        run: pip install --require-hashes --no-deps -r requirements/sast.lock.txt
+        #   uv pip compile --generate-hashes --python-version 3.12 \
+        #     --upgrade -o requirements/sast.txt requirements/sast.in
+        run: pip install --require-hashes --no-deps -r requirements/sast.txt
 
       - name: Run Semgrep (p/security-audit + p/secrets, ERROR-blocking)
         run: |

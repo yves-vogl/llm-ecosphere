@@ -73,7 +73,7 @@ training is seeded, so results are directly comparable.
 The documentation site is MkDocs Material:
 
 ```bash
-pip install -r requirements/docs.lock.txt --require-hashes --no-deps
+pip install -r requirements/docs.txt --require-hashes --no-deps
 mkdocs serve    # live preview at http://127.0.0.1:8000
 ```
 

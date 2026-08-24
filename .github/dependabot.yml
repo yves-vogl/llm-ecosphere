@@ -30,11 +30,49 @@ updates:
           - patch
     open-pull-requests-limit: 5
 
-  # Runtime dependencies (torch, numpy, pytest) declared in the root
-  # requirements.txt. These are range-pins (`>=`) by design — the repo is
-  # an educational lab that should install cleanly on current toolchains —
-  # so Dependabot only raises PRs when the floor falls behind a major
-  # release or a security advisory lands.
+  # ── Python: root runtime deps AND the requirements/ CI toolchain ────────
+  #
+  # ONE pip entry covers both, deliberately. Dependabot's Python file
+  # fetcher walks every immediate subdirectory of `directory:` looking for
+  # `*.txt` / `*.in` (dependabot-core, python/lib/dependabot/python/
+  # shared_file_fetcher.rb — `req_txt_and_in_files` concatenates
+  # `req_files_for_dir(f)` for each child dir). So `directory: /` ALREADY
+  # sees requirements/{docs,sast}.{in,txt}. A second entry scoped to
+  # `/requirements` therefore duplicated every toolchain PR under a second
+  # commit prefix — that is what produced the twin `ci(deps)` / `build(deps)`
+  # pairs in the 2026-08-24 wave (#70/#75, #71/#78, #72/#79). The second
+  # entry is gone; one prefix (`build`) now covers both surfaces.
+  #
+  # Root requirements.txt (torch, numpy, pytest) is range-pinned (`>=`) by
+  # design — this is an educational lab that should install cleanly on
+  # current toolchains — so Dependabot only raises PRs when the floor falls
+  # behind a major release or a security advisory lands.
+  #
+  # requirements/{docs,sast}.txt are pip-compile/uv output, generated from
+  # requirements/{docs,sast}.in. `allow: dependency-type: direct` is what
+  # keeps Dependabot to the top-level pins (mkdocs-material, semgrep) and
+  # off the ~300 transitive entries.
+  #
+  # That only works if Dependabot RECOGNISES the .txt as a compiled
+  # lockfile. It pairs them by basename: PipCompileFileMatcher#
+  # manifest_for_lockfile_name strips `.txt` and looks for `<basename>.in`
+  # (dependabot-core, python/lib/dependabot/python/
+  # pip_compile_file_matcher.rb). While these files were named
+  # `sast.lock.txt` / `docs.lock.txt`, the lookup was for `sast.lock.in` —
+  # which does not exist — so the pairing failed, every pinned line parsed
+  # as a top-level requirement (file_parser.rb assigns `requirements: []`
+  # ONLY for a recognised pip-compile lockfile), `allow: direct` filtered
+  # nothing, and Dependabot emitted single-line bumps that no resolver
+  # would ever produce. Both workflows install with `--require-hashes
+  # --no-deps`, so CI could not catch the corruption either.
+  #
+  # DO NOT rename these files back to `*.lock.txt`. The `.in` → `.txt`
+  # basename pairing is load-bearing.
+  #
+  # Note on `ignore`: it is deliberately NOT used to silence transitives.
+  # Ignore rules also apply to Dependabot security updates, so a blanket
+  # ignore would mute a genuine advisory on a transitive. Transitives are
+  # meant to move by re-resolution when a top-level pin bumps.
   - package-ecosystem: pip
     directory: /
     allow:
@@ -46,33 +84,6 @@ updates:
       timezone: Europe/Berlin
     commit-message:
       prefix: build
-      include: scope
-    labels:
-      - dependencies
-      - python
-    groups:
-      pip-minor-patch:
-        applies-to: version-updates
-        update-types:
-          - minor
-          - patch
-    open-pull-requests-limit: 5
-
-  # CI toolchain (MkDocs + plugins, Semgrep) is hash-pinned in
-  # requirements/{docs,sast}.lock.txt. Dependabot scans the top-level
-  # `.in` files via `directory: /requirements`; bumps arrive as PRs that
-  # update the lockfiles.
-  - package-ecosystem: pip
-    directory: /requirements
-    allow:
-      - dependency-type: direct
-    schedule:
-      interval: weekly
-      day: monday
-      time: "06:00"
-      timezone: Europe/Berlin
-    commit-message:
-      prefix: ci
       include: scope
     labels:
       - dependencies
