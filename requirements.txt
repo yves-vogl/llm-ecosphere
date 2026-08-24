@@ -1,3 +1,3 @@
 torch>=2.4
-numpy>=1.26  # not used directly; silences a torch import warning
+numpy>=2.5.2  # not used directly; silences a torch import warning
 pytest>=9.1.1
