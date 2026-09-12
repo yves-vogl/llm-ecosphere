@@ -46,13 +46,20 @@ jobs:
           # 'feat(api)!:').
           REGEX='^(feat|fix|docs|test|refactor|chore|ci|build|perf|style|revert)(\([^)]+\))?!?: .+'
           FAIL=0
+          # Merge commits are excluded below (--no-merges). Their subject
+          # is written by git ("Merge branch 'main' into ..."), so it can
+          # never satisfy the grammar and no author can fix it. It also
+          # never lands: this repo is squash-only, so the subject that
+          # reaches main is the PR title -- which is what this gate needs
+          # to hold. Dependabot writes such a merge every time it
+          # refreshes a branch, so this repo carries the same latent block.
           while IFS= read -r SHA; do
             SUBJECT=$(git log --format=%s -n 1 "${SHA}")
             if ! echo "${SUBJECT}" | grep -qE "${REGEX}"; then
               echo "FAIL ${SHA:0:7}: '${SUBJECT}'"
               FAIL=1
             fi
-          done < <(git rev-list "${BASE}..${HEAD}")
+          done < <(git rev-list --no-merges "${BASE}..${HEAD}")
           if [ "${FAIL}" -eq 1 ]; then
             echo ""
             echo "Conventional Commits required: <type>(<scope>): <subject>"
