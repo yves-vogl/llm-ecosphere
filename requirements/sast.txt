@@ -31,9 +31,9 @@ bracex==3.0.1 \
     --hash=sha256:4e38e32392e4a4780fe15d644bfc7c8514057cfc3861e060b11814ce829c25e4 \
     --hash=sha256:6523ad83aeb5098a4ee597cff0f964442ff74e460bd3fafaffab6a013ff2288c
     # via wcmatch
-certifi==2026.7.22 \
-    --hash=sha256:62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775 \
-    --hash=sha256:741e2c3b351ddf169a738da9f2c048608ff7f2c5cc02f1ebc6b118bb090d5d55
+certifi==2026.10.19 \
+    --hash=sha256:035c1e85572b141bf1c3a3eff0e33a8eb74917522f2559075ff8d2fea780a1ae \
+    --hash=sha256:42d35340cc5b9ba78e818ddbff0c5b1c2b779de448a340fd1b989f5fa8670e1b
     # via
     #   httpcore
     #   httpx
@@ -894,7 +894,7 @@ semgrep==1.178.0 \
     --hash=sha256:a64fb4ed4fc5b68016381085088f732a58cfd9a87b16c6ab70c12aac784bd17d \
     --hash=sha256:b7c4a4ba5cad1a6b0e76f7143c164b3f2853b9d0f902f2db2f64006257c941f2 \
     --hash=sha256:ba18dbf4f293ed20834b69aae62b9352a089f2c9308e66f6eb43d67ca780e633
-    # via -r requirements/sast.in
+    # via -r sast.in
 sse-starlette==3.4.8 \
     --hash=sha256:6e82314c786709a3cd9520f2285cf9fff90e181e598e8a357b0cf80f66afba0d \
     --hash=sha256:ed89ffbb75cbf78a5fe2f2109cd584792ee7f9dfac96f791db546df8f15f3f9c
